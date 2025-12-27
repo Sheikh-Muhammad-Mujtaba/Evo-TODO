@@ -7,7 +7,7 @@ surface: agent
 model: claude-haiku-4-5-20251001
 feature: 001-cli-todo
 branch: 001-cli-todo
-user: techaccuracy
+user: sheikh-mujtaba
 command: /sp.clarify
 labels: ["clarification", "review", "requirements", "architecture"]
 links:

@@ -7,7 +7,7 @@ surface: agent
 model: claude-haiku-4-5-20251001
 feature: none
 branch: master
-user: techaccuracy
+user: sheikh-mujtaba
 command: /sp.constitution
 labels: ["constitution", "governance", "python", "architecture"]
 links:
