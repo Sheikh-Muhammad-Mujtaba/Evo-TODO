@@ -208,3 +208,33 @@ Wait for consent; never auto-create ADRs. Group related decisions (stacks, authe
 
 ## Code Standards
 See `.specify/memory/constitution.md` for code quality, testing, performance, security, and architecture principles.
+
+## Git Commit Attribution
+
+When committing code, use one of the following author patterns:
+
+**Option 1: Claude Code (AI Assistant)**
+```bash
+git commit -m "Commit message" --author="Claude Code <noreply@anthropic.com>"
+```
+
+**Option 2: Sheikh Muhammad Mujtaba (Project Owner)**
+```bash
+git commit -m "Commit message" --author="Sheikh Muhammad Mujtaba <mujtaba@domain.com>"
+```
+
+In commit messages, always include:
+```
+🤖 Generated with Claude Code
+
+Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>
+```
+
+### Default Users
+
+**Active Users**:
+- `claude` / `Claude Code` (AI Assistant - Anthropic)
+- `sheikh-mujtaba` / `Sheikh Muhammad Mujtaba` (Project Owner)
+
+**Removed Users**:
+- ❌ `techaccuracy` (legacy, no longer used)
