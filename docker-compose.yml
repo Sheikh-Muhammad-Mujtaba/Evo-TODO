@@ -1,0 +1,78 @@
+# Task T-203: Docker Compose for Phase II monorepo
+# Services: PostgreSQL (data), FastAPI (backend), Next.js (frontend)
+
+version: '3.8'
+
+services:
+  # PostgreSQL database
+  postgres:
+    image: postgres:15-alpine
+    container_name: evo_todo_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-evo_todo_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evo_todo_password}
+      POSTGRES_DB: ${POSTGRES_DB:-evo_todo}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evo_todo_user} -d ${POSTGRES_DB:-evo_todo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - evo-todo-network
+
+  # FastAPI backend (Task T-202)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: evo_todo_backend
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-evo_todo_user}:${POSTGRES_PASSWORD:-evo_todo_password}@postgres:5432/${POSTGRES_DB:-evo_todo}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-256-bit-secret-key}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_HOURS: 168
+      CORS_ORIGINS: http://localhost:3000
+      ENVIRONMENT: development
+      DEBUG: "True"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    networks:
+      - evo-todo-network
+    command: >
+      sh -c "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  # Next.js frontend (Task T-201)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: evo_todo_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - evo-todo-network
+    command: npm run dev
+
+volumes:
+  postgres_data:
+
+networks:
+  evo-todo-network:
+    driver: bridge

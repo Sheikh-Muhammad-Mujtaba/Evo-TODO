@@ -1,0 +1,23 @@
+# Task T-202: FastAPI backend project configuration
+
+[project]
+name = "evo-todo-backend"
+version = "1.0.0"
+description = "Phase II Backend: FastAPI with JWT Authentication"
+requires-python = ">=3.13"
+
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "sqlmodel>=0.0.14",
+    "python-jose>=3.3.0",
+    "passlib>=1.7.4",
+    "bcrypt>=4.1.0",
+    "pydantic-settings>=2.1.0",
+    "psycopg>=3.1.0",
+]
+
+[tool.uv]
+python-version = "3.13"
+
+[tool.uv.sources]
