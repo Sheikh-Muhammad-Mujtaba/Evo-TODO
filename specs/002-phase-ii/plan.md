@@ -25,10 +25,10 @@ Convert the CLI Todo application into a production-ready full-stack web applicat
 **Language/Version**: Python 3.13+ (backend), TypeScript 5+ (frontend)
 
 **Primary Dependencies**:
-- Backend: FastAPI, SQLModel, python-jose, passlib, bcrypt
-- Frontend: Next.js 16+, React 18+, TypeScript
+- Backend: FastAPI, SQLModel, better-auth (JWT plugin), httpx (async HTTP client)
+- Frontend: Next.js 16+, React 18+, TypeScript, better-auth (JavaScript client)
 
-**Storage**: PostgreSQL (Neon serverless for production, Docker container for development)
+**Storage**: PostgreSQL via Neon Serverless (Better Auth managed schema); local Docker for development parity
 
 **Testing**:
 - Backend: pytest with unit, integration, and acceptance tests
@@ -231,28 +231,31 @@ Evo-TODO/
 
 ---
 
-### Phase 2.3: JWT Authentication & Security (Days 3-4)
+### Phase 2.3: Better Auth Integration with JWT (Days 3-4)
 
 **Deliverables**:
-- JWT token creation with shared secret (HS256, 7-day expiration)
-- JWT token validation and extraction of user_id
-- Password hashing with bcrypt (min 8 chars)
-- FastAPI dependencies for authentication enforcement
-- Authentication endpoints (signup, signin, logout)
+- Better Auth Python client installed and configured
+- Better Auth's managed user/session schema (auto-created in Neon)
+- FastAPI JWT validation middleware that extracts user_id from Better Auth tokens
+- API dependency for `get_current_user()` that decodes Better Auth JWT and returns authenticated user
+- Frontend Better Auth JavaScript client configured for signup/signin/logout flows
 
 **Critical Files**:
-- `backend/app/core/security.py` - JWT and password functions
-- `backend/app/api/deps.py` - FastAPI dependencies
-- `backend/app/api/auth.py` - Auth endpoints
-- `.env.example` - JWT secret configuration
+- `backend/app/core/auth.py` - Better Auth JWT verification and user extraction (replaces custom security.py)
+- `backend/app/api/deps.py` - FastAPI dependencies using Better Auth verification
+- `backend/app/api/auth.py` - Proxy endpoints that delegate to Better Auth (via HTTP client)
+- `frontend/lib/auth.ts` - Better Auth JavaScript client configuration
+- `frontend/hooks/useAuth.ts` - Auth context using Better Auth client
+- `.env.example` - Better Auth API key and Neon connection string
 
 **Success Criteria**:
-- Signup creates user with bcrypt-hashed password
-- Signin returns valid JWT token on correct credentials
-- JWT token includes sub (user_id) and exp claims
+- Better Auth Python client successfully authenticates with Better Auth service
+- Signup via frontend Better Auth client creates user in Neon (Better Auth schema)
+- JWT token issued by Better Auth contains user_id in `sub` claim
+- FastAPI `/api/todos` endpoints extract user_id from Better Auth JWT claims
 - Missing JWT returns 401 Unauthorized
-- Invalid JWT returns 401 Unauthorized
-- Expired JWT returns 401 Unauthorized
+- Invalid/expired JWT returns 401 Unauthorized
+- All user data isolated by user_id from JWT claims (zero cross-user access)
 
 ---
 
@@ -282,36 +285,63 @@ Evo-TODO/
 
 ---
 
-### Phase 2.5: Frontend API Integration & Components (Days 5-7)
+### Phase 2.5: Neon PostgreSQL Migration & Better Auth Schema (Days 4-5)
 
 **Deliverables**:
-- API client in `/lib/api.ts` with methods for all endpoints
-- JWT token attachment to every request (Authorization header)
-- Authentication hook (`useAuth`) with context provider
-- Signin/Signup pages with form validation
+- Neon PostgreSQL project created and connection string configured in `.env`
+- Better Auth migrations run on Neon (users, sessions, accounts tables auto-created)
+- SQLModel Todo model migrated to use Neon connection
+- Database health checks updated for Neon serverless (connection pooling configured)
+- Local Docker PostgreSQL deprecated (kept for offline dev if needed, but Neon is primary)
+
+**Critical Files**:
+- `.env` - Update `DATABASE_URL` to Neon connection string
+- `backend/app/models/database.py` - Update connection pooling for serverless (enable connection timeout)
+- `backend/app/models/todo.py` - Ensure foreign key references Better Auth's user schema
+- Neon Console - Verify users, sessions, accounts tables exist
+
+**Success Criteria**:
+- Neon PostgreSQL connection successful from FastAPI backend
+- Better Auth tables (users, sessions, accounts, verifications) exist in Neon
+- Todo table foreign key correctly references users.id from Better Auth schema
+- No data loss during migration (fresh dev environment, so minimal concerns)
+- Connection pooling works under load (p95 query latency < 100ms)
+- Neon serverless scales to zero successfully
+
+---
+
+### Phase 2.6: Frontend API Integration & Components (Days 5-7)
+
+**Deliverables**:
+- API client in `/lib/api.ts` with methods for all Todo endpoints (CRUD)
+- JWT token from Better Auth automatically attached to every request (Authorization header)
+- Authentication context hook (`useAuth`) wrapping Better Auth JavaScript client
+- Signin/Signup pages using Better Auth form components (or custom forms calling Better Auth API)
 - Todo dashboard with list, create, edit, delete, toggle operations
 - Responsive design (mobile, tablet, desktop)
 
 **Critical Files**:
-- `frontend/lib/api.ts` - API client with auto JWT attachment
-- `frontend/hooks/useAuth.ts` - Auth context and provider
-- `frontend/app/(auth)/signin/page.tsx` - Signin page
-- `frontend/app/(auth)/signup/page.tsx` - Signup page
+- `frontend/lib/api.ts` - API client with auto JWT attachment from Better Auth token
+- `frontend/lib/auth.ts` - Better Auth client configuration and utilities
+- `frontend/hooks/useAuth.ts` - Auth context wrapping Better Auth (signup, signin, logout, current user)
+- `frontend/app/(auth)/signin/page.tsx` - Signin page using Better Auth client
+- `frontend/app/(auth)/signup/page.tsx` - Signup page using Better Auth client
 - `frontend/app/(dashboard)/page.tsx` - Todo list page
-- `frontend/app/(dashboard)/layout.tsx` - Protected dashboard layout
+- `frontend/app/(dashboard)/layout.tsx` - Protected dashboard layout with Better Auth check
 
 **Success Criteria**:
-- User can signup with email, password, optional name
-- User can signin with email and password
-- Signin redirects to dashboard on success
-- Invalid credentials show error message
-- Todos display in list with title, description, status
+- User can signup with email, password via Better Auth client (creates user in Neon)
+- User can signin with email and password via Better Auth client
+- Signin redirects to dashboard on success with JWT token from Better Auth
+- Invalid credentials show error message from Better Auth API
+- Todos display in list with title, description, status (filtered by user_id from Better Auth JWT)
 - User can create new todo with required title
 - User can update todo title/description
 - User can toggle completion status (visual strikethrough)
 - User can delete todo with confirmation
 - All form inputs validated on client and server
 - Responsive layout on 320px, 768px, 1024px+ viewports
+- Logout removes Better Auth session and redirects to signin
 
 ---
 
@@ -320,30 +350,37 @@ Evo-TODO/
 ```
 Phase 2.1: Infrastructure
 ├── M1: Backend scaffolding ─────────┬──────────→ Phase 2.2: Database
-├── M2: Frontend scaffolding ────────┼──────────→ Phase 2.5: Frontend
+├── M2: Frontend scaffolding ────────┼──────────→ Phase 2.6: Frontend
 └── M3: Docker Compose ─────────────┐│
 
-Phase 2.2: Database Schema ────────→ Phase 2.3: Auth
+Phase 2.2: Database Schema ────────→ Phase 2.3: Better Auth Integration
 ├── D1: SQLModel models ───────┐
-└── D2: Pydantic schemas ──────┴──→ A1: Dependencies
-                                     └──→ A2: Auth endpoints ──→ Phase 2.4: CRUD
-Phase 2.4: Todo CRUD ──────────────→ Phase 2.5: Frontend
-├── T1: Todo endpoints ────────────→ F1: API client
-└── Ownership validation ─────────┐
+└── D2: Pydantic schemas ──────┴──→ A1: Better Auth JWT validation
+                                     └──→ A2: Better Auth proxy endpoints ──→ Phase 2.4: CRUD
+Phase 2.4: Todo CRUD ──────────────→ Phase 2.5: Neon Migration
+├── T1: Todo endpoints ────────────→ DB1: Create Neon project
+└── T2: User scoping ─────────────┐│→ DB2: Run Better Auth migrations
+                                   │
+Phase 2.5: Neon Migration ────────→ Phase 2.6: Frontend
+├── DB1: Neon setup ───────────────┐
+├── DB2: Better Auth schema ───────┼──→ F1: API client (lib/api.ts)
+└── DB3: Connection pooling ───────┴──→ F2: Better Auth context (useAuth)
+                                        └──→ F3: Frontend components
 
-Phase 2.5: Frontend Components
-├── F1: API client (lib/api.ts) ──→ F2: useAuth hook
-├── F2: Auth hook ────────────────→ F3: Auth pages
+Phase 2.6: Frontend Components
+├── F1: API client (lib/api.ts) ──→ F2: useAuth hook (Better Auth)
+├── F2: Auth context ────────────→ F3: Auth pages (signin/signup)
 └── F3: Dashboard layout ────────→ F4: Todo components
 ```
 
-**Critical Path**: M1 → D1 → A1 → A2 → T1 → F1 → F2 → F3/F4
+**Critical Path**: M1 → D1 → A1 → A2 → T1 → DB1 → DB2 → F1 → F2 → F3/F4
 
 **Parallel Work**:
 - M1 (backend) and M2 (frontend) can start simultaneously
 - D1 and D2 (database) can start after M1
 - M3 (Docker) can start after M1 and M2
-- F1 (API client) can start after M2 (frontend) is scaffolded
+- Phase 2.5 (Neon) can start once Phase 2.4 (Todo CRUD) is complete
+- F1 (API client) can start after M2 (frontend) and Phase 2.5 (Neon) ready
 
 ---
 
@@ -353,11 +390,14 @@ Phase 2.5: Frontend Components
 |-------|-------|-------|------|--------|
 | 2.1 | 3 | 8 | 2 | Low |
 | 2.2 | 2 | 8 | 1 | Low |
-| 2.3 | 2 | 5 | 2 | Medium |
+| 2.3 | 3 | 6 | 2 | Medium (Better Auth integration) |
 | 2.4 | 1 | 3 | 2 | Medium |
-| 2.5 | 4 | 12 | 3 | High |
+| 2.5 | 3 | 4 | 1 | Low (Neon migration + Better Auth schema) |
+| 2.6 | 4 | 12 | 3 | High (Frontend with Better Auth) |
 | Testing & Polish | - | - | 1 | Medium |
-| **Total** | **12** | **~55** | **~8** | **Medium** |
+| **Total** | **16** | **~55** | **~12** | **Medium-High** |
+
+**Note**: Phase 2.5 (Neon Migration) is shorter because Better Auth auto-manages the schema. Phase 2.3 (Better Auth Integration) has higher effort due to service integration but lower than custom JWT implementation.
 
 ---
 
@@ -375,49 +415,69 @@ Phase 2.5: Frontend Components
 - Separate repositories: Harder to maintain version alignment
 - Nested structure: Would complicate build and deployment
 
-### Decision 2: JWT with Shared Secret
-**Choice**: HS256 JWT with shared secret in .env
+### Decision 2: Better Auth with JWT Plugin
+**Choice**: Better Auth service with JWT token plugin for FastAPI integration
 **Rationale**:
-- Simple to implement, no external auth service required
-- Stateless authentication (no session storage needed)
-- Fast validation on every request
-- Expires after 7 days (balance between security and UX)
+- Handles all authentication complexity: signup, signin, session management, token rotation
+- JWT tokens issued by Better Auth service (not custom-signed)
+- Automatic user/session schema management in Neon PostgreSQL
+- Scales to OAuth 2.0, social login in Phase III without rework
+- Better Auth Python client + JavaScript client ensure frontend/backend alignment
+- Stateless JWT validation at FastAPI boundary; no session storage required
 
 **Alternatives Rejected**:
-- OAuth 2.0: Overkill for MVP, adds complexity
-- Sessions: Stateful, requires session storage, harder to scale
+- Custom JWT/bcrypt: High security risk, manual token management, no built-in OAuth path
+- Sessions + HTTPOnly cookies: Stateful, incompatible with Phase III stateless chat API
+- Firebase/Auth0: Closed ecosystem, lock-in risk for hackathon
 
-### Decision 3: HTTPOnly Cookie vs. localStorage
-**Choice**: Recommend httpOnly cookie (set by backend)
+### Decision 3: JWT Token Storage (via Better Auth)
+**Choice**: JWT stored in-memory by Better Auth client; no manual localStorage/cookies
 **Rationale**:
-- Protected from XSS attacks (JavaScript cannot access)
-- Automatically sent with every request (no manual attachment in frontend)
-- Secure flag prevents transmission over HTTP
-- Recommended by OWASP
+- Better Auth JavaScript client handles token storage securely
+- Reduces XSS attack surface (tokens not in localStorage)
+- Automatic token refresh via Better Auth client
+- Frontend `useAuth` hook provides clean API for token management
 
 **Trade-off**:
-- Cannot be accessed from JavaScript (use Refresh Token pattern in future)
-- Requires server-side cookie setting
+- Must use Better Auth client (not custom auth logic)
+- Token lost on page refresh (but Better Auth session refreshes automatically)
 
-### Decision 4: User Data Isolation at Query Level
-**Choice**: Every query filters by user_id from JWT
+### Decision 4: Database: Neon Serverless PostgreSQL
+**Choice**: Migrate entirely to Neon; use Better Auth's managed schema
+**Rationale**:
+- Spec requirement (Phase II mandate)
+- Serverless scales to zero (cost-efficient for MVP)
+- Better Auth auto-creates users, sessions, accounts tables
+- No manual database maintenance needed
+- Connection pooling for stateless FastAPI
+
+**Alternatives Rejected**:
+- Local Docker Postgres: Development-only, not production-ready, manual schema management
+- Other managed databases: Lock-in risk, more expensive
+
+### Decision 5: User Data Isolation at Query Level
+**Choice**: Every query filters by user_id extracted from Better Auth JWT claims
 **Rationale**:
 - Defense in depth: multiple layers of protection
 - Prevents accidental data leakage via bug in business logic
-- Enforced at database layer (cannot be bypassed)
-- Simpler than role-based access control
+- Enforced at database layer via WHERE clause (cannot be bypassed)
+- Better Auth JWT always includes user_id; automatic isolation
 
 **Example**:
 ```python
-todos = db.query(Todo).filter(Todo.user_id == current_user.id).all()
+# Extract user_id from Better Auth JWT (in deps.py)
+current_user_id = token_payload.get("sub")  # User UUID from Better Auth
+
+# All queries filter by this user
+todos = db.query(Todo).filter(Todo.user_id == current_user_id).all()
 ```
 
-### Decision 5: 403 Forbidden vs. 404 Not Found
+### Decision 6: 403 Forbidden vs. 404 Not Found for Ownership Violations
 **Choice**: Return 403 for ownership violations (not 404)
 **Rationale**:
 - Security through obscurity: doesn't reveal todo existence
 - Consistent error handling
-- Standard REST convention
+- Standard REST convention (though query filtering makes 404 unlikely)
 
 **Alternative Rejected**:
 - 404: Would leak information about which todos exist
@@ -426,16 +486,18 @@ todos = db.query(Todo).filter(Todo.user_id == current_user.id).all()
 
 ## Security Implementation Checklist
 
-- [x] JWT tokens expire after 7 days
-- [x] Passwords hashed with bcrypt (min 8 chars)
-- [x] All inputs validated (email, password, title, description)
+- [x] **Better Auth handles**: JWT tokens, password hashing, session management, token rotation
+- [x] JWT tokens issued by Better Auth service (not custom-signed)
+- [x] Passwords securely managed by Better Auth (no custom bcrypt needed in backend)
+- [x] All inputs validated (email, password, title, description at API boundary)
 - [x] SQL injection prevention (SQLModel ORM with parameterized queries)
 - [x] XSS prevention (HTML escaping in frontend, no direct DOM manipulation)
-- [x] CSRF protection (JWT in Authorization header, not cookies)
-- [x] Data isolation (WHERE user_id = <authenticated_user_id> in all queries)
+- [x] CSRF protection (JWT in Authorization header; Better Auth handles cookie security)
+- [x] Data isolation (WHERE user_id = <extracted_from_jwt> in all Todo queries)
 - [x] Proper HTTP status codes (401, 403, 404, 400)
-- [x] No sensitive info in error messages
-- [x] HTTPS in production (recommended, not enforced in MVP)
+- [x] No sensitive info in error messages (defer to Better Auth error handling)
+- [x] HTTPS in production (required for Better Auth service communication)
+- [x] Better Auth JWT validation at FastAPI boundary (middleware in Phase 2.3)
 
 ---
 

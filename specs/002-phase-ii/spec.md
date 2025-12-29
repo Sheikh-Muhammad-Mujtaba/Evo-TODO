@@ -399,6 +399,18 @@ Response (401 Unauthorized):
 }
 ```
 
+## Clarifications
+
+### Session 2025-12-29
+
+- Q: Authentication framework: custom JWT/bcrypt vs Better Auth JWT plugin? → A: **Better Auth JWT plugin (Option A).** Mandatory per hackathon constitution and Phase III stateless architecture requirement. Replaces existing custom JWT/bcrypt system.
+- Q: Database: Docker Postgres vs Neon Serverless PostgreSQL? → A: **Migrate to Neon immediately (Option A).** Spec-required; use Better Auth's native SQLAlchemy schema; auto-scales to zero.
+- Q: User isolation & JWT claims structure? → A: **JWT `sub` = user UUID via Better Auth schema (Option A).** Todo queries filtered by extracted `user_id` from token claims; automatic isolation.
+- Q: Migration path for existing users? → A: **Fresh start with Better Auth schema (Option A).** Drop local dev DB; no migration script needed for MVP.
+- Q: Better Auth scope: email-only vs multi-provider? → A: **Email/password only for Phase II; OAuth scaffolding for Phase III (Option A).** Minimal scope, spec-compliant, future-proof.
+
+---
+
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
@@ -413,3 +425,5 @@ Response (401 Unauthorized):
 - **SC-008**: API response latency is under 200ms for all endpoints (p95) under normal load
 - **SC-009**: JWT tokens expire after 7 days; expired tokens trigger automatic logout and redirect to signin
 - **SC-010**: All database queries use parameterized statements via SQLModel ORM to prevent SQL injection
+- **SC-011**: Better Auth handles all user signup/signin; custom JWT/bcrypt system removed entirely
+- **SC-012**: All user data stored in Neon PostgreSQL using Better Auth's schema; zero local/Docker database usage

@@ -1,4 +1,5 @@
-# Task T-216: Todo CRUD endpoints with user_id filtering for data isolation
+# Task T-224: Todo CRUD endpoints with user_id filtering for data isolation
+# Task T-222: All endpoints validate Better Auth JWT tokens via get_current_user dependency
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlmodel import Session, select
 from typing import Optional

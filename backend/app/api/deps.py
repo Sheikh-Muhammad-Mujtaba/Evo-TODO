@@ -1,11 +1,11 @@
-# Task T-214: FastAPI dependencies for authentication and database access
+# Task T-222: FastAPI dependencies for Better Auth JWT validation
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 from typing import Optional
 from uuid import UUID
 
-from app.core.security import decode_access_token
+from app.core.auth import verify_better_auth_token, get_user_id_from_token
 from app.models.database import get_db
 from app.models.user import User
 from jose import JWTError
@@ -21,44 +21,46 @@ async def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     """
-    Task T-214: FastAPI dependency to extract and validate JWT token
+    Task T-222: FastAPI dependency to validate Better Auth JWT token
 
-    This dependency extracts the JWT token from the Authorization header,
-    validates the signature, and returns the authenticated User object.
+    This dependency extracts the Better Auth JWT token from the Authorization header,
+    validates the signature using Better Auth's shared secret, and returns the
+    authenticated User object from the database.
 
     Usage in protected routes:
         @router.get("/todos")
         async def get_todos(current_user: User = Depends(get_current_user)):
-            # current_user is the authenticated User from JWT
+            # current_user is the authenticated User from Better Auth JWT
             todos = db.query(Todo).filter(Todo.user_id == current_user.id).all()
             return todos
 
     Flow:
     1. Extract token from "Authorization: Bearer <token>" header
-    2. Decode JWT and extract user_id (sub claim)
-    3. Query database for User with that ID
-    4. Verify user is active (is_active=True)
-    5. Return User object for use in route
+    2. Verify token signature and expiration with Better Auth secret (T-222)
+    3. Extract user_id from token's 'sub' (subject) claim
+    4. Query database for User with that ID (defense in depth)
+    5. Verify user is active (is_active=True)
+    6. Return User object for use in route
 
     Error Responses:
     - 401 Unauthorized: Missing/malformed Authorization header
-    - 401 Unauthorized: Invalid/expired JWT token
-    - 401 Unauthorized: User ID not found in token
+    - 401 Unauthorized: Invalid/expired Better Auth JWT token
+    - 401 Unauthorized: User ID not found in token claims
     - 401 Unauthorized: User doesn't exist in database
     - 401 Unauthorized: User account is deactivated
 
-    Security Features:
-    - Token signature verified using JWT_SECRET_KEY
-    - Token expiration verified
-    - User existence verified (token claims not trusted alone)
+    Security Features (T-222):
+    - Token signature verified using BETTER_AUTH_SECRET (HS256)
+    - Token expiration verified via JWT exp claim
+    - User existence verified in database (token claims not trusted alone)
     - User active status verified (allows account deactivation)
-    - No password stored/compared (JWT-based)
+    - Data isolation enforced: All queries filter by user_id
     """
     token = credentials.credentials
 
     try:
-        # Task T-214: Decode JWT and extract claims
-        payload = decode_access_token(token)
+        # Task T-222: Verify Better Auth JWT signature and expiration
+        payload = await verify_better_auth_token(token)
 
         # Extract user_id from "sub" (subject) claim
         user_id_str: str = payload.get("sub")
@@ -66,44 +68,44 @@ async def get_current_user(
         if user_id_str is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials (missing user ID)",
+                detail="Unauthorized",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Task T-214: Convert string to UUID
+        # Task T-222: Convert string to UUID
         try:
             user_id = UUID(user_id_str)
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials (invalid user ID format)",
+                detail="Unauthorized",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    except JWTError as e:
-        # Task T-214: Token signature or expiration invalid
+    except (ValueError, JWTError) as e:
+        # Task T-222: Token signature or expiration invalid
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired token",
+            detail="Unauthorized",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Task T-214: Fetch user from database
+    # Task T-222: Fetch user from database (defense in depth)
     statement = select(User).where(User.id == user_id)
     user = db.exec(statement).first()
 
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail="Unauthorized",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Task T-214: Verify user account is active
+    # Task T-222: Verify user account is active
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account is deactivated",
+            detail="Unauthorized",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -155,25 +157,25 @@ def get_user_id_from_header(
     authorization: Optional[str] = Header(None)
 ) -> Optional[UUID]:
     """
-    Task T-214: Extract user ID directly from Authorization header (low-level)
+    Task T-222: Extract user ID directly from Authorization header (low-level)
 
     This is a lower-level dependency for cases where you need just the user ID
-    without full database lookup. Not recommended for most endpoints.
+    without full database lookup. Uses Better Auth JWT validation.
 
     Args:
         authorization: Authorization header value
 
     Returns:
-        User UUID if valid token, None if no token or invalid
+        User UUID if valid Better Auth token, None if no token or invalid
 
     Example:
         @router.get("/user-id")
         async def get_user_id(user_id: Optional[UUID] = Depends(get_user_id_from_header)):
             return {"user_id": user_id}
 
-    Security Note: This does NOT verify the user still exists or is active.
+    Security Note (T-222): This does NOT verify the user still exists or is active.
     Only use for informational endpoints or combine with get_current_user
-    for protected operations.
+    for protected operations. Always use get_current_user for data modification.
     """
     if not authorization:
         return None
@@ -184,8 +186,7 @@ def get_user_id_from_header(
         if scheme.lower() != "bearer":
             return None
 
-        payload = decode_access_token(token)
-        user_id_str: str = payload.get("sub")
+        user_id_str = get_user_id_from_token(token)
 
         if user_id_str is None:
             return None

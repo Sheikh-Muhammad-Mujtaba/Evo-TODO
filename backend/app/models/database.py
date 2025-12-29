@@ -1,17 +1,26 @@
-# Task T-210: Database connection configuration and session management
+# Task T-210/T-223: Database connection configuration and session management
+# Task T-223: Neon PostgreSQL serverless support
 from sqlmodel import create_engine, SQLModel, Session
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, QueuePool
 from app.core.config import settings
 
-# Task T-210: Create engine with connection pool
-# NullPool disables connection pooling (useful for development with sqlite)
-# For production PostgreSQL, use QueuePool (default) with pool_size and max_overflow
+# Task T-223: Create engine with Neon-optimized connection pooling
+# For Neon Serverless PostgreSQL, we need:
+# - Smaller pool size (serverless scales, don't hold connections)
+# - Connection timeout for idle connections
+# - Proper pool pre-ping to detect stale connections
 engine = create_engine(
     settings.DATABASE_URL,
     echo=False,  # Set to True for SQL logging (development only)
     future=True,  # Use SQLAlchemy 2.0 style
-    # Use NullPool for development, QueuePool for production
-    poolclass=NullPool if "sqlite" in settings.DATABASE_URL else None,
+    # Task T-223: Neon-specific pooling configuration
+    poolclass=NullPool if "sqlite" in settings.DATABASE_URL else QueuePool,
+    # Task T-223: Serverless optimizations
+    pool_size=2,  # Reduce for serverless (scales on-demand)
+    max_overflow=3,  # Small overflow for temporary spikes
+    pool_pre_ping=True,  # Verify connections before use (Neon important)
+    pool_recycle=300,  # Recycle connections after 5 mins (Neon timeout)
+    connect_args={"connect_timeout": 10},  # Connect timeout for Neon
 )
 
 def get_db():

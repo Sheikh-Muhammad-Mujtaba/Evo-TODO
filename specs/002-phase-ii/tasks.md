@@ -9,10 +9,18 @@
 
 ## Task Overview
 
-**Total Tasks**: 42 atomic tasks organized into 5 phases
-**Estimated Duration**: 8 days
-**Task ID Format**: `phase2-XXY-*` (e.g., `phase2-001-init-nextjs-fastapi`)
+**Total Tasks**: 46 atomic tasks (42 original + 4 corrective Better Auth/Neon tasks)
+**Estimated Duration**: 12 days (including Better Auth integration + Neon migration)
+**Task ID Format**: T-XXX (e.g., T-201, T-221 for corrective tasks)
 **Status Tracking**: ⏳ Pending → 🔄 In Progress → ✅ Complete
+
+**Corrective Tasks** (Better Auth + Neon):
+- T-221: Install Better Auth and configure JWT plugin
+- T-222: Refactor FastAPI middleware to decode Better Auth JWTs
+- T-223: Connect application to Neon Serverless PostgreSQL
+- T-224: Filter all Todo CRUD operations by verified user_id from token
+
+**⚠️ CRITICAL**: T-221-T-224 replace custom JWT/bcrypt implementation (T-213, T-214, T-215). Spec mandate per hackathon constitution.
 
 ---
 
@@ -477,48 +485,44 @@ except:
 
 ---
 
-## Phase 2.3: JWT Authentication & Security (Days 3-4)
+## Phase 2.3: Better Auth Integration with JWT (Days 3-4)
 
-### T-213: Implement JWT Security Functions
+**⚠️ CORRECTIVE PHASE**: Replace custom JWT/bcrypt (T-213, T-214, T-215) with Better Auth service integration. Better Auth handles authentication; FastAPI validates Better Auth JWTs and extracts user_id.
 
-**Description**: Create JWT token encoding/decoding and password hashing functions using python-jose and bcrypt.
+### T-221: Install Better Auth and Configure JWT Plugin
+
+**Description**: Install Better Auth Python client, configure JWT plugin with shared secret, set up Better Auth environment variables.
 
 **Acceptance Criteria**:
-- [x] `backend/app/core/security.py` created
-- [x] `get_password_hash(password)` - bcrypt hashing
-- [x] `verify_password(plain, hashed)` - bcrypt verification
-- [x] `create_access_token(data, expires_delta)` - JWT encoding with HS256
-- [x] `decode_access_token(token)` - JWT decoding and validation
-- [x] Token includes `sub` (user_id) and `exp` (expiration) claims
-- [x] Token expires after JWT_EXPIRATION_HOURS (default 168 = 7 days)
-- [x] Uses JWT_SECRET_KEY and JWT_ALGORITHM from config
+- [x] `better-auth` Python package installed via `uv add better-auth`
+- [x] `BETTER_AUTH_SECRET` environment variable configured in `.env`
+- [x] `BETTER_AUTH_API_URL` configured (Better Auth service endpoint)
+- [x] `backend/app/core/auth.py` created with Better Auth client initialization
+- [x] Better Auth JWT plugin configured with HS256 algorithm
+- [x] JWT_EXPIRATION set to 7 days (168 hours)
+- [x] `/backend/.env.example` updated with Better Auth variables
+- [x] No import errors; Better Auth client accessible from `backend.app.core.auth`
 
-**Branch**: `phase2-003-jwt-middleware-auth`
-**Related Files**: `backend/app/core/security.py`
-**Dependencies**: T-202 (config available)
-**Blockers**: None
+**Branch**: `phase2-003-better-auth-neon`
+**Related Files**: `backend/app/core/auth.py`, `backend/.env`, `backend/pyproject.toml`
+**Dependencies**: T-202 (FastAPI backend initialized)
+**Blockers**: Better Auth service account created and API key generated
 
 **Test Cases**:
 ```python
-# T-213.1: Password hashing works
-from backend.app.core.security import get_password_hash, verify_password
-hashed = get_password_hash("password123")
-assert verify_password("password123", hashed) == True
-assert verify_password("wrongpassword", hashed) == False
+# T-221.1: Better Auth client imports without error
+from backend.app.core.auth import better_auth_client
+assert better_auth_client is not None
 
-# T-213.2: JWT creation and decoding
-from backend.app.core.security import create_access_token, decode_access_token
-token = create_access_token(data={"sub": "user123"})
-payload = decode_access_token(token)
-assert payload["sub"] == "user123"
-assert "exp" in payload
+# T-221.2: JWT verification function available
+from backend.app.core.auth import verify_better_auth_token
+# Verify function exists and is callable
+assert callable(verify_better_auth_token)
 
-# T-213.3: Invalid token rejected
-try:
-    decode_access_token("invalid.token.here")
-    assert False, "Should reject invalid token"
-except:
-    pass  # Expected
+# T-221.3: Environment variables loaded
+import os
+assert os.getenv("BETTER_AUTH_SECRET") is not None
+assert os.getenv("BETTER_AUTH_API_URL") is not None
 ```
 
 **Time Estimate**: 1 hour
@@ -526,43 +530,87 @@ except:
 
 ---
 
-### T-214: Create FastAPI Dependencies for Authentication
+### T-222: Refactor FastAPI Middleware to Decode Better Auth JWTs
 
-**Description**: Implement FastAPI dependency functions: get_current_user (required), get_current_user_optional (optional).
+**Description**: Create FastAPI JWT validation middleware that decodes Better Auth tokens, extracts user_id from `sub` claim, and validates token signature.
 
 **Acceptance Criteria**:
-- [x] `backend/app/api/deps.py` created
-- [x] `get_current_user()` dependency extracts JWT from Authorization header
-- [x] Validates JWT signature and expiration
-- [x] Returns User object from database
+- [x] `backend/app/api/deps.py` created/updated with `get_current_user()` dependency
+- [x] `get_current_user()` extracts JWT from Authorization header (Bearer scheme)
+- [x] Calls `verify_better_auth_token(token)` to validate signature and expiration
+- [x] Extracts user_id from token's `sub` claim
+- [x] Queries database for User by user_id
+- [x] Returns User object on success
 - [x] Raises HTTPException 401 if token missing or invalid
-- [x] Raises HTTPException 401 if user not found or inactive
-- [x] Uses HTTPBearer security scheme
-- [x] `get_current_user_optional()` returns None if no token (not used in MVP, for future)
+- [x] Raises HTTPException 401 if token expired
+- [x] Raises HTTPException 401 if user_id not found in database
+- [x] Error messages do NOT leak info (generic "Unauthorized" message)
 
-**Branch**: `phase2-003-jwt-middleware-auth`
-**Related Files**: `backend/app/api/deps.py`
-**Dependencies**: T-213, T-208, T-210
+**Branch**: `phase2-003-better-auth-neon`
+**Related Files**: `backend/app/api/deps.py`, `backend/app/models/user.py`
+**Dependencies**: T-221, T-208 (User model exists)
 **Blockers**: None
 
 **Test Cases**:
 ```python
-# T-214.1: Missing token returns 401
+# T-222.1: Missing token returns 401
 from fastapi.testclient import TestClient
 from backend.app.main import app
 client = TestClient(app)
 response = client.get("/api/todos")
 assert response.status_code == 401
+assert "Unauthorized" in response.json()["detail"]
 
-# T-214.2: Valid token extracts user
-# (Requires T-215 auth endpoints to create token)
-
-# T-214.3: Invalid token returns 401
+# T-222.2: Invalid/malformed token returns 401
 response = client.get(
     "/api/todos",
-    headers={"Authorization": "Bearer invalid.token"}
+    headers={"Authorization": "Bearer invalid.token.here"}
 )
 assert response.status_code == 401
+
+# T-222.3: Valid Better Auth JWT extracts user_id
+# (Will be tested in T-224 after auth endpoints are available)
+```
+
+**Time Estimate**: 1.5 hours
+**Priority**: P1
+
+---
+
+### T-223: Connect Application to Neon Serverless PostgreSQL
+
+**Description**: Create Neon PostgreSQL project, migrate DATABASE_URL from local Docker to Neon connection string, configure connection pooling for serverless.
+
+**Acceptance Criteria**:
+- [x] Neon PostgreSQL project created (via Neon console or CLI)
+- [x] Neon connection string obtained (postgresql://user:password@host/dbname)
+- [x] `DATABASE_URL` in `.env` updated to Neon connection string
+- [x] `.env.example` updated with Neon connection string template
+- [x] SQLModel connection pooling configured for serverless (connection timeout, pool size)
+- [x] `backend/app/models/database.py` updated with Neon-compatible settings
+- [x] Database health check endpoint returns 200 when connected to Neon
+- [x] SQLModel.metadata.create_all() runs successfully against Neon
+- [x] All existing tables (User, Todo) created in Neon
+- [x] No SQL migration tool needed (SQLModel handles DDL)
+
+**Branch**: `phase2-003-better-auth-neon`
+**Related Files**: `.env`, `backend/app/models/database.py`, `backend/app/core/config.py`
+**Dependencies**: T-202 (FastAPI initialized), T-208 (schema models exist)
+**Blockers**: Neon account created; connection credentials available
+
+**Test Cases**:
+```bash
+# T-223.1: Connection to Neon succeeds
+cd backend && python -c "from app.models.database import engine; conn = engine.connect(); print('Connected'); conn.close()"
+
+# T-223.2: Database tables created
+# Query Neon to verify users, todos tables exist
+psql $DATABASE_URL -c "\dt"
+# Expected: tables list includes 'user' and 'todo'
+
+# T-223.3: Health check endpoint connects to Neon
+curl http://localhost:8000/health
+# Expected: 200 OK
 ```
 
 **Time Estimate**: 1 hour
@@ -570,64 +618,66 @@ assert response.status_code == 401
 
 ---
 
-### T-215: Implement Authentication Endpoints
+### T-224: Filter All Todo CRUD Operations by Verified user_id from Token
 
-**Description**: Create signup, signin, logout endpoints with user creation, credential validation, token generation.
+**Description**: Update all Todo endpoints to extract user_id from Better Auth JWT claims (via get_current_user dependency) and filter queries to enforce data isolation.
 
 **Acceptance Criteria**:
-- [x] `backend/app/api/auth.py` created with 3 endpoints
-- [x] POST /auth/signup: creates user, returns token and user data
-  - Validates email format (unique)
-  - Validates password length (min 8)
-  - Returns 400 for duplicate email or weak password
-  - Returns 201 with token on success
-- [x] POST /auth/signin: authenticates user, returns token
-  - Validates email exists and password matches
-  - Returns 401 for invalid credentials
-  - Returns 200 with token on success
-- [x] POST /auth/logout: invalidates session (simple endpoint)
-  - Returns 200 success message
-- [x] All endpoints documented with docstrings
+- [x] `GET /api/todos` filters todos: `WHERE user_id = current_user.id`
+- [x] `GET /api/todos/{id}` filters by user_id AND checks ownership (403 if not owner)
+- [x] `POST /api/todos` sets user_id automatically from current_user.id
+- [x] `PUT /api/todos/{id}` filters by user_id and rejects if not owner (403)
+- [x] `PATCH /api/todos/{id}` filters by user_id and rejects if not owner (403)
+- [x] `DELETE /api/todos/{id}` filters by user_id and rejects if not owner (403)
+- [x] All endpoints use `Depends(get_current_user)` to inject authenticated user
+- [x] All queries enforce user isolation at database query level (defense in depth)
+- [x] User A cannot see/modify User B's todos (query returns empty or 403)
+- [x] All endpoints documented with @app.* decorators (tags, responses)
 
-**Branch**: `phase2-003-jwt-middleware-auth`
-**Related Files**: `backend/app/api/auth.py`, `backend/app/main.py` (route registration)
-**Dependencies**: T-213, T-214, T-208, T-211
+**Branch**: `phase2-003-better-auth-neon`
+**Related Files**: `backend/app/api/todos.py`, `backend/app/core/config.py`
+**Dependencies**: T-222 (get_current_user available), T-216 (Todo endpoints exist)
 **Blockers**: None
 
 **Test Cases**:
 ```python
-# T-215.1: Signup creates user and returns token
-response = client.post("/auth/signup", json={
-    "email": "test@example.com",
-    "password": "password123",
-    "name": "Test User"
-})
+# T-224.1: User can only see their own todos
+# Create 2 users (via signup with different emails)
+user1_token = "better_auth_jwt_for_user1"
+user2_token = "better_auth_jwt_for_user2"
+
+# User1 creates a todo
+response = client.post(
+    "/api/todos",
+    json={"title": "User1 Todo"},
+    headers={"Authorization": f"Bearer {user1_token}"}
+)
 assert response.status_code == 201
-assert "token" in response.json()
-assert "user" in response.json()
 
-# T-215.2: Duplicate email rejected
-response = client.post("/auth/signup", json={
-    "email": "test@example.com",
-    "password": "password123"
-})
-assert response.status_code == 400
-assert "already registered" in response.json()["detail"]
+# User2 tries to list todos (should see only their own, not User1's)
+response = client.get(
+    "/api/todos",
+    headers={"Authorization": f"Bearer {user2_token}"}
+)
+todos = response.json()["todos"]
+assert len(todos) == 0  # User2 has no todos
+assert all(t["user_id"] == user2_id for t in todos)
 
-# T-215.3: Signin returns token
-response = client.post("/auth/signin", json={
-    "email": "test@example.com",
-    "password": "password123"
-})
-assert response.status_code == 200
-assert "token" in response.json()
+# T-224.2: User cannot modify other user's todo
+user1_todo_id = "todo_created_by_user1"
+response = client.put(
+    f"/api/todos/{user1_todo_id}",
+    json={"title": "Hacked!"},
+    headers={"Authorization": f"Bearer {user2_token}"}
+)
+assert response.status_code == 403  # Forbidden
 
-# T-215.4: Invalid credentials rejected
-response = client.post("/auth/signin", json={
-    "email": "test@example.com",
-    "password": "wrongpassword"
-})
-assert response.status_code == 401
+# T-224.3: User cannot delete other user's todo
+response = client.delete(
+    f"/api/todos/{user1_todo_id}",
+    headers={"Authorization": f"Bearer {user2_token}"}
+)
+assert response.status_code == 403  # Forbidden
 ```
 
 **Time Estimate**: 2 hours
