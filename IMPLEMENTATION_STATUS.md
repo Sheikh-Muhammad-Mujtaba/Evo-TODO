@@ -1,282 +1,207 @@
-# Implementation Status: CLI Todo Application
+# Phase II Frontend UI - Implementation Status
 
-**Feature**: CLI Todo Application
-**Branch**: `001-cli-todo`
-**Date**: 2025-12-27
-**Status**: ✅ COMPLETE & TESTED
-
-## Implementation Summary
-
-### Completed Phases
-
-**Phase 1: Setup (T001-T004)** ✅ COMPLETE
-- [x] T001 Project directory structure created
-- [x] T002 pyproject.toml configured with Python 3.13+, uv, pytest
-- [x] T003 All __init__.py files created for packages
-- [x] T004 Entry point configured in pyproject.toml
-
-**Phase 2: Foundation (T005-T008)** ✅ COMPLETE
-- [x] T005 Task model created (src/todo_app/models/task.py)
-  - Immutable value object with id, title, description, is_complete
-  - Properties: read-only access via @property decorators
-  - Validation: Empty title raises ValueError
-  - Equals/hash: By ID for use in sets and dicts
-
-- [x] T006 TodoManager service created (src/todo_app/services/todo_manager.py)
-  - CRUD operations: create_task, get_all_tasks, get_task, update_task, mark_complete, delete_task
-  - Auto-incrementing ID generation (starts at 1)
-  - List-based storage: O(1) create, O(n) read/update/delete
-  - Error handling: Raises ValueError for invalid operations
-
-- [x] T007 CLI Handler created (src/todo_app/ui/cli_handler.py)
-  - Formatting: format_task, format_task_list
-  - Input prompts: prompt_user_input, prompt_title, prompt_menu_selection, etc.
-  - Display functions: display_message, display_menu
-  - Unicode support: ☐ (incomplete), ☑ (complete)
-  - Title truncation: 60 char limit with ellipsis
-
-- [x] T008 Main application entry point (src/todo_app/main.py)
-  - Menu loop: Routes user selections to operations
-  - Session management: Initializes TodoManager, handles KeyboardInterrupt
-  - Operations: View, Add, Update, Mark Complete, Delete, Exit
-  - Error handling: User-friendly messages with re-prompts
-
-**Phase 3: User Story 1 - View List (T009-T012)** ✅ COMPLETE
-- [x] T009 Unit tests for CLI Handler formatting (test_cli_handler.py)
-- [x] T010 Unit tests for Task truncation and spacing
-- [x] T011 Implementation in main.py _handle_view_todos()
-- [x] T012 Integration validated via unit tests
-
-**Phase 4: User Story 2 - Add Todo (T013-T016)** ✅ COMPLETE
-- [x] T013 Unit tests for TodoManager create operations
-- [x] T014 Unit tests for auto-increment ID generation
-- [x] T015 Implementation in main.py _handle_add_todo()
-- [x] T016 Integration validated via unit tests
-
-**Phase 5: User Story 3 - Mark Complete (T017-T019)** ✅ COMPLETE
-- [x] T017 Unit tests for TodoManager mark_complete()
-- [x] T018 Implementation in main.py _handle_mark_complete()
-- [x] T019 Integration validated via unit tests
-
-**Phase 6: User Story 4 - Update Todo (T020-T022)** ✅ COMPLETE
-- [x] T020 Unit tests for TodoManager update_task() with partial updates
-- [x] T021 Implementation in main.py _handle_update_todo()
-- [x] T022 Integration validated via unit tests
-
-**Phase 7: User Story 5 - Delete Todo (T023-T025)** ✅ COMPLETE
-- [x] T023 Unit tests for TodoManager delete_task()
-- [x] T024 Implementation in main.py _handle_delete_todo()
-- [x] T025 Integration validated via unit tests
-
-**Phase 8: Menu & Navigation (T026-T030)** ✅ COMPLETE
-- [x] T026 Menu display: display_menu() shows all 6 options
-- [x] T027 Menu routing: Selection 1-6 mapped to operations
-- [x] T028 Exit option: Display "Goodbye!" and break loop
-- [x] T029 Invalid selection: Display "Invalid choice. Please try again."
-- [x] T030 Non-numeric input: Graceful error handling
-
-**Phase 9: Edge Cases (T031-T036)** ✅ IMPLEMENTED & TESTED
-- [x] T031 Non-numeric ID input: "Invalid ID format" error with re-prompt
-- [x] T032 Non-existent ID: "Todo not found" with re-prompt
-- [x] T033 Long title truncation: 60 char display + ellipsis
-- [x] T034 Empty title validation: "Title cannot be empty" re-prompt
-- [x] T035 Unicode/special characters: Accept and display as-is
-- [x] T036 KeyboardInterrupt handling: Graceful exit with "Goodbye!"
-
-### Test Coverage
-
-**Unit Tests: 67/67 PASSING** ✅
-- test_task.py: 20 tests
-  - Construction, validation, properties, immutability, equality, edge cases
-- test_todo_manager.py: 26 tests
-  - CRUD operations, ID generation, error handling, lifecycle integration
-- test_cli_handler.py: 21 tests
-  - Formatting, truncation, empty states, special characters, spacing
-
-**Test Execution**:
-```bash
-cd /mnt/e/mujtaba data/coding classes/proramming/my code/GitHub_Repo_Codes/AI-hackthon/Evo-TODO
-python -m pytest tests/unit/ -v
-# Result: 67 passed in 7.59s ✅
-```
-
-## Project Structure
-
-```
-src/todo_app/
-├── __init__.py
-├── main.py                    # T008: Entry point & menu loop
-├── models/
-│   ├── __init__.py
-│   └── task.py               # T005: Task data model
-├── services/
-│   ├── __init__.py
-│   └── todo_manager.py       # T006: TodoManager CRUD service
-└── ui/
-    ├── __init__.py
-    └── cli_handler.py        # T007: CLI formatting & prompts
-
-tests/
-├── __init__.py
-├── unit/
-│   ├── __init__.py
-│   ├── test_task.py          # T009: Task model tests
-│   ├── test_todo_manager.py  # T013: TodoManager tests
-│   └── test_cli_handler.py   # T010: CLI Handler tests
-├── integration/
-│   └── __init__.py           # T037: Integration tests (ready for population)
-└── contract/
-    └── __init__.py           # T038: Contract tests (ready for population)
-
-pyproject.toml                # T002-T004: Project configuration
-.gitignore                    # Python, IDE, logs, environment files
-```
-
-## Features Implemented
-
-### User Story 1: View Todo List ✅
-- Empty list displays "No todos yet. Add one to get started!"
-- Todos display with [ID], checkbox (☐/☑), title, and description
-- Titles >60 chars truncated with ellipsis
-- Tasks in insertion order
-- Tested: 9 unit tests
-
-### User Story 2: Add New Todo ✅
-- Prompts for title (required) and description (optional)
-- Empty title shows error and re-prompts
-- Auto-incrementing IDs starting at 1
-- Success message displays new todo ID
-- Tested: 5 unit tests + TodoManager integration
-
-### User Story 3: Mark Complete ✅
-- Prompt for todo ID
-- Toggles status: incomplete ↔ complete
-- Status changes reflected in list
-- Error for non-existent ID with re-prompt
-- Tested: 5 unit tests
-
-### User Story 4: Update Todo ✅
-- Prompt for ID, new title, new description
-- Blank input = no change (partial updates)
-- At least one field must be provided
-- Changes persist in list
-- Tested: 6 unit tests
-
-### User Story 5: Delete Todo ✅
-- Prompt for ID
-- Confirmation prompt: "Are you sure? (yes/no)"
-- Case-insensitive: yes/y = delete, no/n = cancel
-- Error for non-existent ID
-- Tested: 4 unit tests
-
-### Performance ✅
-- All operations complete in <100ms (verified through unit tests)
-- Tested with 10+ operations per user story
-- O(1) creation, O(n) lookups suitable for <10k todos
-
-### Error Handling ✅
-- Empty title: Re-prompt
-- Invalid ID format: "Invalid ID format" error
-- Non-existent ID: "Todo not found"
-- Invalid menu: "Invalid choice. Please try again."
-- KeyboardInterrupt: Graceful exit
-
-## Constitutional Compliance
-
-✅ **Principle I: Python 3.13+ with uv**
-- pyproject.toml specifies requires-python = ">=3.13"
-- All dependencies managed via uv only
-
-✅ **Principle II: In-Memory Storage**
-- TodoManager uses List[Task] for storage
-- No file I/O or database access
-- State ephemeral (lost on process exit)
-
-✅ **Principle III: Clean Code**
-- Functions small and focused (single responsibility)
-- Variable names clear: manager, task, formatted, etc.
-- Minimal nesting, testable in isolation
-- Task model and TodoManager modules separate
-
-✅ **Principle IV: Task-Driven Implementation**
-- All code maps to Task IDs (T001-T036)
-- Every file has task references in headers
-- All implementation tasks completed
-
-✅ **Principle V: Performance Over Brevity**
-- Sub-100ms targets specified and met
-- Simple algorithms (list-based O(n) operations)
-- No premature optimization
-
-✅ **Principle VI: Code Generation** (Deferred)
-- Minimal codebase (~800 LOC) allows manual implementation
-- No complex scaffolding needed for small CLI app
-
-## Remaining Tasks
-
-**Phase 10: Integration Tests (T037-T039)** - READY
-- Full workflow integration test structure created
-- Can be populated with end-to-end test scenarios
-
-**Phase 11: Polish (T040-T045)** - READY
-- Docstrings: ✅ Present throughout
-- Comments: ✅ Task references and logic explanations
-- Test suite: ✅ 67 tests passing
-- Code review: ✅ Clean code principles verified
-- Manual testing: Ready to execute by user
-
-## How to Run
-
-### Run Tests
-```bash
-cd <repo>
-python -m pytest tests/unit/ -v
-```
-
-### Run Application
-```bash
-python -m src.todo_app.main
-# or
-cd src && python -m todo_app.main
-```
-
-### Install & Run (via uv)
-```bash
-uv sync
-uv run todo
-```
-
-## Code Quality Metrics
-
-- **Cyclomatic Complexity**: Low (simple conditional routing in main)
-- **Test Coverage**: 67 unit tests covering all core functionality
-- **Lines of Code**: ~800 total (src + tests)
-- **Functions**: 30+ pure, testable functions
-- **Classes**: 2 (Task, TodoManager)
-- **Docstring Coverage**: 100% (all public functions documented)
-
-## Acceptance Criteria Verification
-
-| Criterion | Status | Evidence |
-|-----------|--------|----------|
-| View List | ✅ | test_cli_handler.py (10 tests), main.py _handle_view_todos |
-| Add Todo | ✅ | test_todo_manager.py (5 tests), main.py _handle_add_todo |
-| Mark Complete | ✅ | test_todo_manager.py (5 tests), main.py _handle_mark_complete |
-| Update Todo | ✅ | test_todo_manager.py (6 tests), main.py _handle_update_todo |
-| Delete Todo | ✅ | test_todo_manager.py (4 tests), main.py _handle_delete_todo |
-| Error Handling | ✅ | All 5 user stories + edge case tests |
-| Performance | ✅ | Sub-100ms verified through unit tests |
-| Clean Code | ✅ | Single responsibility, small functions, clear naming |
-
-## Next Actions
-
-1. **Review Code**: All code ready for review (follows constitutional guidelines)
-2. **Manual Testing**: Run application interactively and execute all user stories
-3. **Create PHR**: Document this implementation phase
-4. **Integration Tests**: Populate test/integration with end-to-end scenarios if desired
-5. **Commit & Push**: Code ready for git commit
+**Date**: 2025-12-31
+**Branch**: 003-phase2-frontend-ui
+**Status**: Phase 0 & 1 Complete | Phase 2 In Progress
 
 ---
 
-**Implementation completed successfully!**
-All specified features implemented, tested, and ready for production.
+## Completion Summary
+
+### Phase 0: Pre-Implementation Validation ✅ COMPLETE
+- [x] T-230: Backend API contract verification
+- [x] T-231: JWT token extraction confirmation  
+- [x] T-232: API client bearer token injection validation
+- [x] T-233: Shadcn/UI compatibility validation
+- [x] T-234: Code generation strategy confirmation
+
+**Deliverables**:
+- frontend/docs/API_CONTRACT.md - Complete API endpoint documentation
+- frontend/docs/JWT_STRUCTURE.md - JWT token structure and claims  
+- frontend/docs/JWT_ATTACHMENT.md - JWT bearer injection pattern
+
+### Phase 1: Setup ✅ COMPLETE
+- [x] T-235: Shadcn/UI initialized with npm (16+ packages)
+- [x] T-236: next-themes provider configured in root layout
+- [x] T-237: Better Auth client with JWT plugin (lib/auth-client.ts)
+- [x] T-238: Centralized API client with JWT bearer injection (lib/api-client.ts)
+- [x] T-239: TypeScript interfaces for auth, todos, API responses
+- [x] T-240: Environment variables configured (.env.example)
+- [x] T-241: Root layout with ThemeProvider wrapper
+- [x] T-242: Next.js App Router structure with (auth) and (protected) groups
+- [x] T-243: Tailwind CSS configured with dark mode class strategy
+
+**Deliverables**:
+- frontend/lib/auth-client.ts - Better Auth configuration
+- frontend/lib/api-client.ts - JWT-aware fetch wrapper
+- frontend/lib/api.ts - Alternative API implementation with ApiResponse wrapper
+- frontend/lib/auth.ts - Auth utilities (session, token, signUp/signIn/signOut)
+- frontend/lib/types/ - TypeScript interfaces for auth, todos, API
+- frontend/lib/hooks/ - useAuth, useTodos, useTheme hooks
+- frontend/app/layout.tsx - Root layout with providers
+- frontend/app/(auth)/ - Login/signup route groups
+- frontend/app/(protected)/ - Protected routes for authenticated users
+- frontend/tailwind.config.ts - Tailwind CSS theme configuration
+
+### Phase 2: Foundational (In Progress)
+
+**Completed**:
+- [x] T-244: useAuth hook for authentication state
+- [x] T-245: useTodos hook for todo CRUD operations
+- [x] T-246: useTheme hook for theme persistence
+- [x] T-252: Error handling in API client (401, 403, 500)
+- [x] T-253: Navigation component with user menu
+
+**Remaining**:
+- [ ] T-247: ErrorAlert component (Shadcn)
+- [ ] T-248: LoadingSpinner component (Shadcn)
+- [ ] T-249: EmptyState component (Shadcn)
+- [ ] T-250: Protected routes layout with auth guard
+- [ ] T-251: Auth routes layout
+- [ ] T-254: ThemeToggle button component
+
+---
+
+## Architecture Overview
+
+### Core Infrastructure
+1. **Authentication**: Better Auth with JWT plugin
+   - Client: `lib/auth-client.ts`
+   - Utilities: `lib/auth.ts`
+   - Hook: `lib/hooks/useAuth.ts`
+
+2. **API Communication**: Centralized JWT-aware fetch wrapper
+   - Primary: `lib/api-client.ts` (with ApiError class)
+   - Alternative: `lib/api.ts` (with ApiResponse wrapper)
+   - Convenience methods: GET, POST, PUT, PATCH, DELETE
+
+3. **State Management**: React hooks with optimistic updates
+   - `lib/hooks/useTodos.ts` - Todo CRUD with filtering/sorting
+   - `lib/hooks/useTheme.ts` - Theme preference persistence
+   - `lib/hooks/useAuth.ts` - Session and authentication state
+
+4. **Styling**: Tailwind CSS with next-themes dark mode
+   - Configuration: `tailwind.config.ts`
+   - Dark mode: Class-based strategy (compatible with next-themes)
+   - Root layout: `app/layout.tsx` with ThemeProvider
+
+### Routing Structure
+```
+app/
+├── layout.tsx                    (Root with providers)
+├── (auth)/                       (Public auth routes)
+│   ├── login/page.tsx
+│   ├── signup/page.tsx
+│   └── layout.tsx
+├── (protected)/                  (Authenticated routes)
+│   ├── layout.tsx               (Auth guard)
+│   ├── page.tsx
+│   └── todos/
+│       ├── page.tsx             (Todo list)
+│       ├── new/page.tsx         (Create todo)
+│       └── [id]/page.tsx        (Edit todo)
+```
+
+### Key Files Created
+- `frontend/lib/auth-client.ts` - Better Auth React client initialization
+- `frontend/lib/auth.ts` - Auth helper functions
+- `frontend/lib/api.ts` - API wrapper with response wrapper
+- `frontend/lib/api-client.ts` - Alternative API implementation
+- `frontend/lib/hooks/useAuth.ts` - Auth state management hook
+- `frontend/lib/hooks/useTodos.ts` - Todo CRUD operations hook
+- `frontend/lib/hooks/useTheme.ts` - Theme persistence hook
+- `frontend/lib/types/auth.ts` - Auth TypeScript types
+- `frontend/lib/types/todo.ts` - Todo TypeScript types  
+- `frontend/lib/types/api.ts` - API response types
+- `frontend/components/Navigation.tsx` - App navigation with user menu
+- `frontend/app/layout.tsx` - Root layout with providers
+- `frontend/app/(auth)/login/page.tsx` - Login page
+- `frontend/app/(auth)/signup/page.tsx` - Signup page
+- `frontend/app/(protected)/todos/page.tsx` - Todo list page
+- `frontend/tailwind.config.ts` - Tailwind CSS configuration
+
+### Documentation Created
+- `frontend/docs/API_CONTRACT.md` - Backend API endpoints and responses
+- `frontend/docs/JWT_STRUCTURE.md` - JWT token structure and claims
+- `frontend/docs/JWT_ATTACHMENT.md` - JWT bearer token injection pattern
+
+---
+
+## Next Steps
+
+### To Complete Phase 2 (Blocking Prerequisites):
+1. Create remaining Shadcn components (T-247, T-248, T-249)
+2. Implement protected routes layout with auth guard (T-250, T-251)
+3. Create ThemeToggle button component (T-254)
+
+### Then Proceed to Phase 3+ (User Stories):
+- Phase 3: User Story 1 - New User Registration (T-255+)
+- Phase 4: User Story 2 - User Login & JWT Management (T-260+)
+- Phase 5: User Story 8 - Create & Edit Todo (T-263+)
+- Phase 6: User Story 3 - Todo List Display with Filtering (T-273+)
+- Phase 7: User Story 9 - Delete Todo & User Isolation (T-284+)
+- Phase 8+: Additional user stories and polish
+
+---
+
+## Build Status
+
+```bash
+# Dependencies installed ✓
+npm install: 414 packages, 0 vulnerabilities
+
+# TypeScript compilation ✓  
+typescript: 5.0.0 configured
+
+# ESLint configured ✓
+eslint: 9.0.0 with next.js config
+
+# Next.js ready ✓
+next: 16.0.0 with App Router support
+```
+
+---
+
+## Technical Decisions Made
+
+1. **API Client Pattern**: 
+   - Centralized fetch wrapper with automatic JWT attachment
+   - Two implementations: ApiError class vs ApiResponse wrapper
+   - Recommended: Use `lib/api.ts` for consistency with existing hooks
+
+2. **State Management**:
+   - React hooks (useState) with optimistic updates
+   - No Redux/Zustand (sufficient for app scope)
+   - Can upgrade to React Query later if needed
+
+3. **Theme Management**:
+   - next-themes library for dark mode with system detection
+   - Class-based dark mode (compatible with Tailwind)
+   - Prevents flash of wrong theme (FOUC)
+
+4. **JWT Handling**:
+   - Better Auth's jwtClient() plugin for automatic management
+   - localStorage persistence with 5-minute proactive refresh
+   - 401 responses trigger logout and redirect to /login
+
+---
+
+## Commit History
+
+- `cafdfa4`: Phase 0 & 1 Complete - Frontend setup with API contracts
+
+---
+
+## Known Issues / TODOs
+
+1. Two API client implementations (api.ts vs api-client.ts) - consolidate or document
+2. Phase 2 remaining components (T-247, T-248, T-249, T-250, T-251, T-254)
+3. User story implementation phases (T-255+)
+4. E2E testing setup (Phase 12)
+5. Performance optimization and accessibility audit (Phase 12)
+
+---
+
+**Version**: 1.0.0  
+**Last Updated**: 2025-12-31  
+**Team**: Claude Code + Evo-TODO  
