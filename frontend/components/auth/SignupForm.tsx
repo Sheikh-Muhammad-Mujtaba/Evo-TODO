@@ -11,10 +11,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, Loader2, Check } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
+import { logAuthCookies } from "@/lib/utils"
 
 export function SignupForm() {
   const router = useRouter()
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -47,6 +49,10 @@ export function SignupForm() {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
+    if (!formData.name.trim()) {
+      newErrors.name = "Name is required"
+    }
+
     if (!formData.email.trim()) {
       newErrors.email = "Email is required"
     } else if (!validateEmail(formData.email)) {
@@ -74,28 +80,59 @@ export function SignupForm() {
     e.preventDefault()
     setServerError("")
 
+    console.log("[SignupForm] ==================== SIGNUP ATTEMPT ====================");
+    console.log("[SignupForm] Form submission started");
+    console.log("[SignupForm] Name:", formData.name);
+    console.log("[SignupForm] Email:", formData.email);
+
     if (!validateForm()) {
+      console.log("[SignupForm] Form validation failed");
       return
     }
 
     setIsLoading(true)
+    console.log("[SignupForm] Validation passed, calling authClient.signUp.email()");
 
     try {
+      // Log cookies before signup
+      logAuthCookies("SignupForm-Before");
+
       // Call Better Auth signUp function via client
       // This creates account and issues a JWT token
+      console.log("[SignupForm] Sending signup request to Better Auth...");
+
       const response = await authClient.signUp.email({
+        name: formData.name,
         email: formData.email,
         password: formData.password,
       })
 
+      console.log("[SignupForm] Signup response received:", {
+        hasResponse: !!response,
+        responseType: typeof response,
+      });
+
+      // Log cookies after successful signup
+      logAuthCookies("SignupForm-After");
+
       if (response) {
         // Task T-245: Redirect to todos dashboard after successful signup
         // JWT token is automatically stored by Better Auth client
+        console.log("[SignupForm] ✓ Signup successful, redirecting to /todos");
+        console.log("[SignupForm] ===========================================================");
         router.push("/todos")
+      } else {
+        console.warn("[SignupForm] No response from signup");
+        logAuthCookies("SignupForm-NoResponse");
+        setServerError("Signup failed. Please try again.")
       }
     } catch (err) {
+      console.error("[SignupForm] ✗ Signup failed with error:", err);
       const errorMessage =
         err instanceof Error ? err.message : "Signup failed. Please try again."
+
+      console.error("[SignupForm] Error message:", errorMessage);
+      logAuthCookies("SignupForm-Error");
 
       // Task T-245: Handle specific error cases
       if (errorMessage.includes("already exists") || errorMessage.includes("409")) {
@@ -142,6 +179,32 @@ export function SignupForm() {
 
       {/* Task T-245: Signup form */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Name field */}
+        <div className="space-y-2">
+          <Label htmlFor="name" className="text-gray-900 dark:text-gray-100">
+            Full Name
+          </Label>
+          <Input
+            id="name"
+            type="text"
+            placeholder="John Doe"
+            value={formData.name}
+            onChange={(e) => {
+              setFormData({ ...formData, name: e.target.value })
+              if (errors.name) {
+                setErrors({ ...errors, name: "" })
+              }
+            }}
+            disabled={isLoading}
+            className={errors.name ? "border-red-500" : ""}
+          />
+          {errors.name && (
+            <p className="text-sm text-red-600 dark:text-red-400">
+              {errors.name}
+            </p>
+          )}
+        </div>
+
         {/* Email field */}
         <div className="space-y-2">
           <Label htmlFor="email" className="text-gray-900 dark:text-gray-100">
