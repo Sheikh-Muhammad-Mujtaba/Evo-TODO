@@ -1,4 +1,4 @@
-# Task T-222: FastAPI dependencies for Better Auth JWT validation
+# Task T-222: FastAPI dependencies for Better Auth JWT validation (Official JWT Plugin)
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
@@ -6,9 +6,10 @@ from typing import Optional
 from uuid import UUID
 
 from app.core.auth import verify_better_auth_token, get_user_id_from_token
+from app.core.jwks_client import JWKSFetchError
 from app.models.database import get_db
 from app.models.user import User
-from jose import JWTError
+from jwt.exceptions import InvalidTokenError
 
 # Task T-214: HTTP Bearer security scheme for API documentation
 # This registers the Bearer authentication in FastAPI's OpenAPI (Swagger) UI
@@ -21,11 +22,17 @@ async def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     """
-    Task T-222: FastAPI dependency to validate Better Auth JWT token
+    Task T-222: FastAPI dependency to validate Better Auth JWT token (Official Plugin)
 
     This dependency extracts the Better Auth JWT token from the Authorization header,
-    validates the signature using Better Auth's shared secret, and returns the
+    validates it using EdDSA/Ed25519 keys from the JWKS endpoint, and returns the
     authenticated User object from the database.
+
+    Uses official Better Auth JWT plugin architecture:
+    - EdDSA/Ed25519 asymmetric verification (not HS256 symmetric)
+    - JWKS endpoint for public key retrieval
+    - Issuer/audience claim validation
+    - Automatic key rotation via kid
 
     Usage in protected routes:
         @router.get("/todos")
@@ -36,22 +43,26 @@ async def get_current_user(
 
     Flow:
     1. Extract token from "Authorization: Bearer <token>" header
-    2. Verify token signature and expiration with Better Auth secret (T-222)
-    3. Extract user_id from token's 'sub' (subject) claim
-    4. Query database for User with that ID (defense in depth)
-    5. Verify user is active (is_active=True)
-    6. Return User object for use in route
+    2. Verify token signature and expiration with JWKS endpoint (EdDSA)
+    3. Validate issuer and audience claims
+    4. Extract user_id from token's 'sub' (subject) claim
+    5. Query database for User with that ID (defense in depth)
+    6. Verify user is active (is_active=True)
+    7. Return User object for use in route
 
     Error Responses:
     - 401 Unauthorized: Missing/malformed Authorization header
     - 401 Unauthorized: Invalid/expired Better Auth JWT token
+    - 401 Unauthorized: Invalid issuer or audience
     - 401 Unauthorized: User ID not found in token claims
     - 401 Unauthorized: User doesn't exist in database
     - 401 Unauthorized: User account is deactivated
+    - 503 Service Unavailable: JWKS endpoint unreachable (Better Auth service down)
 
     Security Features (T-222):
-    - Token signature verified using BETTER_AUTH_SECRET (HS256)
+    - Token signature verified using Ed25519 public key from JWKS (asymmetric)
     - Token expiration verified via JWT exp claim
+    - Issuer/audience validated against configured values
     - User existence verified in database (token claims not trusted alone)
     - User active status verified (allows account deactivation)
     - Data isolation enforced: All queries filter by user_id
@@ -59,7 +70,7 @@ async def get_current_user(
     token = credentials.credentials
 
     try:
-        # Task T-222: Verify Better Auth JWT signature and expiration
+        # Task T-222: Verify Better Auth JWT signature and expiration (EdDSA/JWKS)
         payload = await verify_better_auth_token(token)
 
         # Extract user_id from "sub" (subject) claim
@@ -82,8 +93,16 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    except (ValueError, JWTError) as e:
-        # Task T-222: Token signature or expiration invalid
+    except JWKSFetchError:
+        # Better Auth service (JWKS endpoint) is unavailable
+        # Return 503 instead of 401 to indicate temporary service issue
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service temporarily unavailable",
+        )
+
+    except ValueError:
+        # Token signature or expiration invalid
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized",

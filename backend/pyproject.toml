@@ -4,19 +4,17 @@
 name = "evo-todo-backend"
 version = "1.0.0"
 description = "Phase II Backend: FastAPI with JWT Authentication"
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn>=0.24.0",
     "sqlmodel>=0.0.14",
-    "better-auth>=0.1.0",
     "pydantic-settings>=2.1.0",
-    "psycopg>=3.1.0",
+    "pydantic[email]>=2.0.0",
+    "psycopg[binary]>=3.1.0",
     "httpx>=0.25.0",
+    "PyJWT[crypto]>=2.8.0",
 ]
-
-[tool.uv]
-python-version = "3.13"
 
 [tool.uv.sources]

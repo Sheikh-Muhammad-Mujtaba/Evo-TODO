@@ -1,11 +1,17 @@
-import type { Metadata } from 'next'
-import './globals.css'
+// Task T-241: Root layout with Providers (Better Auth, next-themes)
+// This root layout wraps all routes with necessary providers:
+// - ThemeProvider: enables dark/light mode support with system detection
+// - Additional providers can be added as needed
 
-// Task T-201: Root layout with AuthProvider wrapper (will add in T-219)
+import type { Metadata } from 'next'
+import { ThemeProvider } from 'next-themes'
+import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Evo-TODO - Task Management',
-  description: 'Phase II: Full-stack todo application with JWT authentication',
+  description: 'Phase II: Full-stack todo application with JWT authentication and Better Auth',
+  authors: [{ name: 'Evo-TODO Team' }],
+  viewport: 'width=device-width, initial-scale=1',
 }
 
 export default function RootLayout({
@@ -14,10 +20,24 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>
-        {/* Task T-219: Wrap with AuthProvider */}
-        {children}
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Task T-241: Suppress hydration warning due to theme detection */}
+      </head>
+      <body className="bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-50">
+        {/* Task T-241: ThemeProvider from next-themes for dark/light mode */}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          enableColorScheme={false}
+          disableTransitionOnChange
+        >
+          {/* Task T-237: Better Auth client is initialized in lib/auth-client.ts */}
+          {/* Task T-238: API client is initialized in lib/api-client.ts */}
+          {/* Render all child routes with providers active */}
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )

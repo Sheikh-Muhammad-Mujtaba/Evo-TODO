@@ -1,73 +1,142 @@
 """
-Task T-221: Better Auth Configuration and JWT Verification
+Task T-221: Better Auth JWT Verification (Official JWT Plugin Architecture)
 
-This module configures the Better Auth client and provides JWT verification functions
-for FastAPI. Better Auth handles all authentication (signup, signin, session management).
-This module validates Better Auth JWTs at the API boundary.
+This module verifies Better Auth JWTs using:
+- EdDSA/Ed25519 asymmetric keys from JWKS endpoint
+- Issuer and audience claim validation
+- Key ID (kid) based key selection with automatic refresh on rotation
+- Automatic JWKS caching with 5-minute TTL
+
+The official Better Auth JWT plugin uses:
+- Algorithm: EdDSA with Ed25519 curve (asymmetric)
+- Key source: JWKS endpoint at /api/auth/jwks
+- Token structure: HS256 -> EdDSA, shared secret -> JWKS endpoint
+- Claims required: sub (user_id), iss (issuer), aud (audience), exp (expiration)
 
 Phase II Constitution Compliance:
 - Better Auth manages user authentication (required per spec)
-- JWT validation happens at FastAPI dependency level
-- User_id extracted from JWT claims for data isolation
+- JWT validation at FastAPI dependency level (Task T-222)
+- User_id extracted from JWT claims for data isolation (Task T-224)
 - All requests must provide valid Better Auth JWT token
 """
 
-import os
+import logging
 from typing import Dict, Optional
-import httpx
-from jose import JWTError, jwt
-from pydantic_settings import BaseSettings
 
+import jwt
+from jwt import PyJWKClient, PyJWKClientError
+from jwt.exceptions import (
+    InvalidTokenError,
+    ExpiredSignatureError,
+    InvalidAudienceError,
+    InvalidIssuerError,
+    DecodeError,
+)
 
-class AuthSettings(BaseSettings):
-    """T-221: Better Auth Configuration from Environment"""
+from app.core.config import settings
+from app.core.jwks_client import (
+    get_jwks_client,
+    refresh_jwks_cache,
+    JWKSFetchError,
+    JWKSKeyNotFoundError,
+)
 
-    BETTER_AUTH_SECRET: str = os.getenv(
-        "BETTER_AUTH_SECRET",
-        "your-better-auth-secret-key-change-in-production"
-    )
-    BETTER_AUTH_API_URL: str = os.getenv(
-        "BETTER_AUTH_API_URL",
-        "https://api.betterauth.io"
-    )
-    JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRATION_HOURS: int = 168  # 7 days
-
-    class Config:
-        env_file = ".env"
-
-
-# T-221: Initialize Better Auth settings
-auth_settings = AuthSettings()
+logger = logging.getLogger(__name__)
 
 
 async def verify_better_auth_token(token: str) -> Dict:
     """
-    T-222: Verify and decode Better Auth JWT token
+    Task T-221: Verify and decode Better Auth JWT token using JWKS.
 
-    This function validates the JWT signature and expiration using the shared secret.
-    It extracts the user_id (sub claim) for data isolation in subsequent queries.
+    This function validates the JWT using EdDSA/Ed25519 public keys from
+    the Better Auth JWKS endpoint. It performs full JWT verification including
+    signature validation, claim validation, and key rotation handling.
+
+    Verification Flow:
+    1. Get JWKS client (uses cached instance with 5-min TTL)
+    2. Extract signing key from JWKS based on kid in JWT header
+    3. Verify JWT signature using Ed25519 public key
+    4. Validate issuer (iss) claim matches BETTER_AUTH_ISSUER
+    5. Validate audience (aud) claim matches BETTER_AUTH_AUDIENCE
+    6. Validate expiration (exp) claim
+    7. Extract and verify 'sub' (subject/user_id) claim is present
+    8. Return token payload for downstream use
+
+    Key Rotation Handling:
+    If a JWT has a kid (key ID) not found in the cached JWKS:
+    - First attempt: Use cached JWKS
+    - If kid not found: Refresh JWKS cache from endpoint
+    - Second attempt: Try again with fresh JWKS
+    - If still not found: Raise ValueError (401 Unauthorized)
 
     Args:
-        token: JWT token from Authorization header (Bearer token)
+        token (str): JWT token from Authorization header (without "Bearer " prefix)
 
     Returns:
-        Token payload dict with 'sub' (user_id) and other claims
+        Dict: Token payload containing:
+            - 'sub': User ID (UUID string)
+            - 'iss': Issuer URL
+            - 'aud': Audience URL
+            - 'exp': Expiration timestamp
+            - Additional claims from Better Auth
 
     Raises:
-        ValueError: If token is invalid, expired, or signature verification fails
+        ValueError: If token is invalid, expired, or verification fails
+            - "Token has expired" → ExpiredSignatureError
+            - "Invalid token audience" → InvalidAudienceError
+            - "Invalid token issuer" → InvalidIssuerError
+            - "Invalid token format" → DecodeError
+            - "Token missing 'sub' (user_id) claim" → Missing sub claim
+            - "Token signing key not found in JWKS" → kid not in JWKS after refresh
+            - "Token verification failed" → Other unexpected errors
 
-    Flow:
-        1. Decode JWT using BETTER_AUTH_SECRET and HS256
-        2. Validate 'sub' claim exists (user_id)
-        3. Return payload for dependency extraction
+    Security Notes:
+    - Signature verification uses Ed25519 public key from JWKS (asymmetric)
+    - Token is never trusted without signature verification
+    - Claims are validated against configured issuer/audience
+    - Issuer/audience mismatch indicates token from different service
+    - User_id extraction is safe for subsequent database queries
+
+    Example:
+        >>> token = "eyJhbGciOiJFZERTQSIsImtpZCI6ImtleS0xIn0.eyJzdWIi..."
+        >>> payload = await verify_better_auth_token(token)
+        >>> user_id = payload["sub"]  # e.g., "550e8400-e29b-41d4-a716-446655440000"
     """
     try:
-        # Decode and verify JWT signature using shared secret
+        # Get JWKS client (uses cached instance, singleton pattern)
+        jwks_client = get_jwks_client()
+
+        # Extract signing key from JWKS based on kid in JWT header
+        # This will fail if kid is not in the cached JWKS
+        try:
+            signing_key = jwks_client.get_signing_key_from_jwt(token)
+        except PyJWKClientError as e:
+            # Key not found in cache - try refreshing JWKS cache once
+            logger.warning(f"Key not found in JWKS cache, refreshing: {e}")
+            refresh_jwks_cache()
+            jwks_client = get_jwks_client()
+
+            try:
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
+            except PyJWKClientError as e:
+                logger.error(f"Key still not found after JWKS refresh: {e}")
+                raise ValueError("Token signing key not found in JWKS")
+
+        # Verify and decode JWT with full claim validation
+        # Uses Ed25519 public key from JWKS endpoint
         payload = jwt.decode(
             token,
-            auth_settings.BETTER_AUTH_SECRET,
-            algorithms=[auth_settings.JWT_ALGORITHM]
+            signing_key.key,
+            algorithms=["EdDSA"],  # Better Auth JWT plugin default algorithm
+            audience=settings.BETTER_AUTH_AUDIENCE,
+            issuer=settings.BETTER_AUTH_ISSUER,
+            options={
+                "verify_signature": True,   # Verify Ed25519 signature
+                "verify_exp": True,         # Verify expiration
+                "verify_aud": True,         # Verify audience claim
+                "verify_iss": True,         # Verify issuer claim
+                "require": ["sub", "exp", "iss", "aud"],  # Required claims
+            }
         )
 
         # Ensure user_id (sub claim) is present
@@ -75,62 +144,74 @@ async def verify_better_auth_token(token: str) -> Dict:
         if not user_id:
             raise ValueError("Token missing 'sub' (user_id) claim")
 
+        logger.debug(f"Token verified for user: {user_id[:8]}...")
         return payload
 
-    except JWTError as e:
-        # JWT validation failed (signature, expiration, format)
-        raise ValueError(f"Invalid or expired token: {str(e)}")
+    except ExpiredSignatureError:
+        logger.warning("Token has expired")
+        raise ValueError("Token has expired")
+
+    except InvalidAudienceError:
+        logger.warning(f"Invalid audience claim, expected: {settings.BETTER_AUTH_AUDIENCE}")
+        raise ValueError("Invalid token audience")
+
+    except InvalidIssuerError:
+        logger.warning(f"Invalid issuer claim, expected: {settings.BETTER_AUTH_ISSUER}")
+        raise ValueError("Invalid token issuer")
+
+    except DecodeError as e:
+        logger.warning(f"Token decode failed: {e}")
+        raise ValueError("Invalid token format")
+
+    except InvalidTokenError as e:
+        logger.warning(f"Token validation failed: {e}")
+        raise ValueError(f"Invalid token: {str(e)}")
+
+    except Exception as e:
+        logger.error(f"Unexpected error during token verification: {e}")
+        raise ValueError("Token verification failed")
 
 
 def get_user_id_from_token(token: str) -> Optional[str]:
     """
-    T-222: Extract user_id from Better Auth JWT token
+    Task T-222: Extract user_id from Better Auth JWT token (synchronous version).
 
-    Safely extracts user_id without raising exceptions (returns None on failure).
-    Used by FastAPI dependencies for data isolation.
+    Safely extracts user_id from the 'sub' claim without raising exceptions.
+    Does NOT verify signature or claims - use only for non-critical extraction.
+
+    This function is useful for:
+    - Extracting user_id before authentication (for logging/diagnostics)
+    - Fallback paths where authentication failure is acceptable
+    - Non-critical use cases where unverified extraction is acceptable
+
+    WARNING: Do NOT use this for authentication or authorization decisions.
+    Always use verify_better_auth_token() for protected operations.
 
     Args:
-        token: JWT token string
+        token (str): JWT token string
 
     Returns:
-        User ID (UUID from 'sub' claim) or None if invalid
+        Optional[str]: User ID (UUID string from 'sub' claim) or None if invalid
+
+    Example:
+        >>> token = "eyJhbGciOiJFZERTQSIsImtpZCI6ImtleS0xIn0..."
+        >>> user_id = get_user_id_from_token(token)
+        >>> if user_id:
+        ...     logger.info(f"Request from user: {user_id}")
+        ... else:
+        ...     logger.info("Request with invalid token")
+
+    Security Note:
+        This function does NOT verify the signature. It only decodes
+        the JWT without verification. Use verify_better_auth_token()
+        for any security-critical operations.
     """
     try:
-        payload = jwt.decode(
+        # Decode without verification (unsafe extraction only)
+        unverified = jwt.decode(
             token,
-            auth_settings.BETTER_AUTH_SECRET,
-            algorithms=[auth_settings.JWT_ALGORITHM]
+            options={"verify_signature": False}
         )
-        return payload.get("sub")
-    except JWTError:
+        return unverified.get("sub")
+    except Exception:
         return None
-
-
-async def validate_better_auth_with_service(token: str) -> bool:
-    """
-    T-221: Validate token with Better Auth service (optional)
-
-    This method can validate tokens directly with the Better Auth service
-    for additional security (check if token was revoked, etc.).
-
-    Currently disabled for MVP; enable for production with token revocation support.
-
-    Args:
-        token: JWT token to validate
-
-    Returns:
-        True if valid, False otherwise
-    """
-    # NOTE: Better Auth service validation can be added here
-    # For MVP, we rely on JWT signature verification only
-    # In production, call: {BETTER_AUTH_API_URL}/api/auth/verify with token
-    return True
-
-
-# T-221: Test that module imports correctly
-if __name__ == "__main__":
-    print(f"✓ Better Auth module loaded successfully")
-    print(f"✓ BETTER_AUTH_SECRET configured: {bool(auth_settings.BETTER_AUTH_SECRET)}")
-    print(f"✓ BETTER_AUTH_API_URL: {auth_settings.BETTER_AUTH_API_URL}")
-    print(f"✓ JWT_ALGORITHM: {auth_settings.JWT_ALGORITHM}")
-    print(f"✓ JWT_EXPIRATION_HOURS: {auth_settings.JWT_EXPIRATION_HOURS}")
