@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { authClient } from "@/lib/auth-client"
+import { logAuthCookies } from "@/lib/utils"
 
 export function LoginForm() {
   const router = useRouter()
@@ -53,28 +54,52 @@ export function LoginForm() {
     e.preventDefault()
     setServerError("")
 
+    console.log("[LoginForm] ==================== LOGIN ATTEMPT ====================");
+    console.log("[LoginForm] Form submission started");
+    console.log("[LoginForm] Email:", formData.email);
+
     if (!validateForm()) {
+      console.log("[LoginForm] Form validation failed");
       return
     }
 
     setIsLoading(true)
+    console.log("[LoginForm] Validation passed, calling authClient.signIn.email()");
 
     try {
+      // Log cookies before login
+      logAuthCookies("LoginForm-Before");
+
       // Call Better Auth signIn function via client
       // This authenticates with the backend and issues a JWT token
+      console.log("[LoginForm] Sending login request to Better Auth...");
       const response = await authClient.signIn.email({
         email: formData.email,
         password: formData.password,
       })
 
+      console.log("[LoginForm] Login response received:", {
+        hasResponse: !!response,
+        responseType: typeof response,
+      });
+
+      // Log cookies after successful login
+      logAuthCookies("LoginForm-After");
+
       if (response) {
         // Task T-253: Redirect to todos dashboard after successful login
         // JWT token is automatically stored by Better Auth client
+        console.log("[LoginForm] ✓ Login successful, redirecting to /todos");
+        console.log("[LoginForm] ===========================================================");
         router.push("/todos")
       }
     } catch (err) {
+      console.error("[LoginForm] ✗ Login failed with error:", err);
       const errorMessage =
         err instanceof Error ? err.message : "Login failed. Please try again."
+
+      console.error("[LoginForm] Error message:", errorMessage);
+      logAuthCookies("LoginForm-Error");
 
       // Task T-253: Handle specific error cases
       if (
@@ -94,6 +119,7 @@ export function LoginForm() {
       }
     } finally {
       setIsLoading(false)
+      console.log("[LoginForm] Login attempt completed");
     }
   }
 

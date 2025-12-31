@@ -3,7 +3,7 @@
 // - ThemeProvider: enables dark/light mode support with system detection
 // - Additional providers can be added as needed
 
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { ThemeProvider } from 'next-themes'
 import './globals.css'
 
@@ -11,7 +11,11 @@ export const metadata: Metadata = {
   title: 'Evo-TODO - Task Management',
   description: 'Phase II: Full-stack todo application with JWT authentication and Better Auth',
   authors: [{ name: 'Evo-TODO Team' }],
-  viewport: 'width=device-width, initial-scale=1',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({

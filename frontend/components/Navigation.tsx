@@ -5,26 +5,34 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { useSession } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 import { useTheme } from "@/lib/hooks/useTheme"
 import { Button } from "@/components/ui/button"
-import { signOut } from "@/lib/auth"
 import { LogOut, Sun, Moon } from "lucide-react"
 import { useState } from "react"
 
 export function Navigation() {
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session } = authClient.useSession()
   const { theme, toggleTheme } = useTheme()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
+  console.log("[Navigation] Session state updated:", {
+    hasSession: !!session,
+    userId: session?.user?.id,
+    userEmail: session?.user?.email,
+  });
+
   const handleLogout = async () => {
+    console.log("[Navigation] Logout button clicked");
     setIsLoggingOut(true)
     try {
-      await signOut()
+      console.log("[Navigation] Calling authClient.signOut()");
+      await authClient.signOut()
+      console.log("[Navigation] ✓ Signed out, redirecting to /login");
       router.push("/login")
     } catch (error) {
-      console.error("Logout failed:", error)
+      console.error("[Navigation] ✗ Logout failed:", error)
       setIsLoggingOut(false)
     }
   }

@@ -9,6 +9,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "@/lib/auth-client"
 import { Navigation } from "@/components/Navigation"
+import { logAuthCookies } from "@/lib/utils"
 
 export default function ProtectedLayout({
   children,
@@ -18,10 +19,29 @@ export default function ProtectedLayout({
   const router = useRouter()
   const { data: session, isPending } = useSession()
 
+  console.log("[Protected Layout] Checking authentication...", {
+    isPending,
+    hasSession: !!session,
+    userId: session?.user?.id,
+  });
+
   useEffect(() => {
+    console.log("[Protected Layout] useEffect triggered:", {
+      isPending,
+      hasSession: !!session,
+    });
+
     // Task T-250: Redirect unauthenticated users to login
     if (!isPending && !session) {
+      console.warn("[Protected Layout] ✗ No session - redirecting to /login");
+      logAuthCookies("Protected-NoSession");
       router.push("/login")
+    } else if (!isPending && session) {
+      console.log("[Protected Layout] ✓ Session authenticated:", {
+        userId: session.user?.id,
+        userEmail: session.user?.email,
+      });
+      logAuthCookies("Protected-Authenticated");
     }
   }, [session, isPending, router])
 
