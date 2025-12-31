@@ -14,7 +14,6 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "better-auth": "^1.4.9",
-    "better-fetch": "^0.1.1",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "lucide-react": "^0.562.0",
