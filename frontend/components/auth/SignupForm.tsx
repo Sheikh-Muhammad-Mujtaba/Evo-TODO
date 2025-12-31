@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, Loader2, Check } from "lucide-react"
-import { signUp } from "@/lib/auth"
+import { authClient } from "@/lib/auth-client"
 
 export function SignupForm() {
   const router = useRouter()
@@ -81,9 +81,12 @@ export function SignupForm() {
     setIsLoading(true)
 
     try {
-      // Call Better Auth signUp function
+      // Call Better Auth signUp function via client
       // This creates account and issues a JWT token
-      const response = await signUp(formData.email, formData.password)
+      const response = await authClient.signUp.email({
+        email: formData.email,
+        password: formData.password,
+      })
 
       if (response) {
         // Task T-245: Redirect to todos dashboard after successful signup

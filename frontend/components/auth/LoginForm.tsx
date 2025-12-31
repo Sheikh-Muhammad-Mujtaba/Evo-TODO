@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AlertCircle, Loader2 } from "lucide-react"
-import { signIn } from "@/lib/auth"
+import { authClient } from "@/lib/auth-client"
 
 export function LoginForm() {
   const router = useRouter()
@@ -60,9 +60,12 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
-      // Call Better Auth signIn function
+      // Call Better Auth signIn function via client
       // This authenticates with the backend and issues a JWT token
-      const response = await signIn(formData.email, formData.password)
+      const response = await authClient.signIn.email({
+        email: formData.email,
+        password: formData.password,
+      })
 
       if (response) {
         // Task T-253: Redirect to todos dashboard after successful login
