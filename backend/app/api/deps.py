@@ -3,7 +3,6 @@ from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
 from typing import Optional
-from uuid import UUID
 
 from app.core.auth import verify_better_auth_token, get_user_id_from_token
 from app.core.jwks_client import JWKSFetchError
@@ -22,17 +21,22 @@ async def get_current_user(
     db: Session = Depends(get_db)
 ) -> User:
     """
-    Task T-222: FastAPI dependency to validate Better Auth JWT token (Official Plugin)
+    Task T-222/T-221: FastAPI dependency to validate Better Auth JWT token
 
     This dependency extracts the Better Auth JWT token from the Authorization header,
     validates it using EdDSA/Ed25519 keys from the JWKS endpoint, and returns the
-    authenticated User object from the database.
+    authenticated User object from Better Auth's database.
 
     Uses official Better Auth JWT plugin architecture:
     - EdDSA/Ed25519 asymmetric verification (not HS256 symmetric)
     - JWKS endpoint for public key retrieval
     - Issuer/audience claim validation
     - Automatic key rotation via kid
+
+    FIX (2026-01-01): User model now correctly maps to Better Auth's 'user' table
+    - Table name: 'user' (singular, not 'users')
+    - user_id type: String (UUID string from Better Auth, not UUID object)
+    - Removed: is_active field (not used by Better Auth)
 
     Usage in protected routes:
         @router.get("/todos")
@@ -45,26 +49,23 @@ async def get_current_user(
     1. Extract token from "Authorization: Bearer <token>" header
     2. Verify token signature and expiration with JWKS endpoint (EdDSA)
     3. Validate issuer and audience claims
-    4. Extract user_id from token's 'sub' (subject) claim
-    5. Query database for User with that ID (defense in depth)
-    6. Verify user is active (is_active=True)
-    7. Return User object for use in route
+    4. Extract user_id from token's 'sub' (subject) claim (string UUID)
+    5. Query Better Auth's 'user' table for User with that ID
+    6. Return User object for use in route
 
     Error Responses:
     - 401 Unauthorized: Missing/malformed Authorization header
     - 401 Unauthorized: Invalid/expired Better Auth JWT token
     - 401 Unauthorized: Invalid issuer or audience
     - 401 Unauthorized: User ID not found in token claims
-    - 401 Unauthorized: User doesn't exist in database
-    - 401 Unauthorized: User account is deactivated
+    - 401 Unauthorized: User doesn't exist in Better Auth database
     - 503 Service Unavailable: JWKS endpoint unreachable (Better Auth service down)
 
-    Security Features (T-222):
+    Security Features:
     - Token signature verified using Ed25519 public key from JWKS (asymmetric)
     - Token expiration verified via JWT exp claim
     - Issuer/audience validated against configured values
-    - User existence verified in database (token claims not trusted alone)
-    - User active status verified (allows account deactivation)
+    - User existence verified in Better Auth database
     - Data isolation enforced: All queries filter by user_id
     """
     token = credentials.credentials
@@ -74,19 +75,17 @@ async def get_current_user(
         payload = await verify_better_auth_token(token)
 
         # Extract user_id from "sub" (subject) claim
-        user_id_str: str = payload.get("sub")
+        # Better Auth stores user_id as a string UUID
+        user_id: str = payload.get("sub")
 
-        if user_id_str is None:
+        if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unauthorized",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Task T-222: Convert string to UUID
-        try:
-            user_id = UUID(user_id_str)
-        except ValueError:
+        if not isinstance(user_id, str) or not user_id.strip():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Unauthorized",
@@ -109,19 +108,14 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Task T-222: Fetch user from database (defense in depth)
+    # Task T-222: Fetch user from Better Auth's 'user' table
+    # This verifies the user exists in the database (defense in depth)
     statement = select(User).where(User.id == user_id)
     user = db.exec(statement).first()
 
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unauthorized",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Task T-222: Verify user account is active
-    if not user.is_active:
+        # User ID in JWT doesn't exist in database
+        # This should be rare as Better Auth manages user creation
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Unauthorized",
@@ -174,25 +168,27 @@ async def get_current_user_optional(
 
 def get_user_id_from_header(
     authorization: Optional[str] = Header(None)
-) -> Optional[UUID]:
+) -> Optional[str]:
     """
     Task T-222: Extract user ID directly from Authorization header (low-level)
 
     This is a lower-level dependency for cases where you need just the user ID
     without full database lookup. Uses Better Auth JWT validation.
 
+    FIX (2026-01-01): Now returns string user_id (from Better Auth) instead of UUID
+
     Args:
         authorization: Authorization header value
 
     Returns:
-        User UUID if valid Better Auth token, None if no token or invalid
+        User ID string if valid Better Auth token, None if no token or invalid
 
     Example:
         @router.get("/user-id")
-        async def get_user_id(user_id: Optional[UUID] = Depends(get_user_id_from_header)):
+        async def get_user_id(user_id: Optional[str] = Depends(get_user_id_from_header)):
             return {"user_id": user_id}
 
-    Security Note (T-222): This does NOT verify the user still exists or is active.
+    Security Note (T-222): This does NOT verify the user still exists in database.
     Only use for informational endpoints or combine with get_current_user
     for protected operations. Always use get_current_user for data modification.
     """
@@ -210,11 +206,12 @@ def get_user_id_from_header(
         if scheme.lower() != "bearer":
             return None
 
-        user_id_str = get_user_id_from_token(token)
+        user_id = get_user_id_from_token(token)
 
-        if user_id_str is None:
+        if user_id is None:
             return None
 
-        return UUID(user_id_str)
+        # Return as string (Better Auth uses string UUIDs)
+        return user_id
     except (ValueError, InvalidTokenError, JWTDecodeError):
         return None

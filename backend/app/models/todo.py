@@ -1,9 +1,20 @@
 # Task T-209: SQLModel Todo entity with user_id foreign key
+"""
+Todo model for the todo management application.
+
+IMPORTANT: The user_id field is now a string (UUID string from Better Auth)
+to match the 'user' table schema created by Better Auth.
+
+Better Auth stores user IDs as UUID strings in the 'user' table.
+The foreign key must reference 'user.id' (singular table name).
+"""
+
 from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4
 from sqlmodel import SQLModel, Field
 from sqlalchemy import Index
+
 
 class Todo(SQLModel, table=True):
     """
@@ -11,7 +22,7 @@ class Todo(SQLModel, table=True):
 
     Maps to 'todos' table with fields:
     - id: UUID primary key (auto-generated)
-    - user_id: UUID foreign key to users.id (enforces ownership)
+    - user_id: String foreign key to user.id (Better Auth's user table)
     - title: Required todo title (500 char limit)
     - description: Optional longer description (2000 char limit)
     - is_complete: Boolean completion status
@@ -25,19 +36,20 @@ class Todo(SQLModel, table=True):
     """
     __tablename__ = "todos"
 
-    # Primary Key
+    # Primary Key - use UUID for todos
     id: UUID = Field(
         default_factory=uuid4,
         primary_key=True,
         description="Unique todo identifier (UUID v4)"
     )
 
-    # Foreign Key (Task T-209: Security - enables user_id filtering)
-    user_id: UUID = Field(
-        foreign_key="users.id",
+    # Foreign Key - now string to match Better Auth's user.id type
+    # Better Auth stores user IDs as UUID strings
+    user_id: str = Field(
+        foreign_key="user.id",  # Fixed: Use singular 'user' table from Better Auth
         nullable=False,
         index=True,
-        description="Foreign key to users.id (required for data isolation)"
+        description="Foreign key to user.id from Better Auth (string UUID)"
     )
 
     # Content Fields
