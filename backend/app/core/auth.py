@@ -144,19 +144,29 @@ async def verify_better_auth_token(token: str) -> Dict:
         if not user_id:
             raise ValueError("Token missing 'sub' (user_id) claim")
 
-        logger.debug(f"Token verified for user: {user_id[:8]}...")
+        logger.debug(f"Token verified for user: {user_id[:8]}... Claims: iss={payload.get('iss')}, aud={payload.get('aud')}, exp={payload.get('exp')}")
         return payload
 
     except ExpiredSignatureError:
         logger.warning("Token has expired")
         raise ValueError("Token has expired")
 
-    except InvalidAudienceError:
-        logger.warning(f"Invalid audience claim, expected: {settings.BETTER_AUTH_AUDIENCE}")
+    except InvalidAudienceError as e:
+        # Extract unverified claims to show what audience was in token
+        try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            logger.warning(f"Invalid audience claim - Expected: {settings.BETTER_AUTH_AUDIENCE}, Got: {unverified.get('aud')}")
+        except:
+            logger.warning(f"Invalid audience claim - Expected: {settings.BETTER_AUTH_AUDIENCE}")
         raise ValueError("Invalid token audience")
 
-    except InvalidIssuerError:
-        logger.warning(f"Invalid issuer claim, expected: {settings.BETTER_AUTH_ISSUER}")
+    except InvalidIssuerError as e:
+        # Extract unverified claims to show what issuer was in token
+        try:
+            unverified = jwt.decode(token, options={"verify_signature": False})
+            logger.warning(f"Invalid issuer claim - Expected: {settings.BETTER_AUTH_ISSUER}, Got: {unverified.get('iss')}")
+        except:
+            logger.warning(f"Invalid issuer claim - Expected: {settings.BETTER_AUTH_ISSUER}")
         raise ValueError("Invalid token issuer")
 
     except DecodeError as e:
