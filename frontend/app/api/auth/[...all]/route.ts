@@ -32,8 +32,17 @@ export async function GET(request: NextRequest, context: any) {
       console.error(
         "[Auth Route] Database connection failed. Check DATABASE_URL in .env.local"
       );
+      // Return graceful error response instead of throwing
+      return NextResponse.json(
+        { error: "Authentication service temporarily unavailable" },
+        { status: 503 }
+      );
     }
-    throw error;
+    // Return generic error for unexpected failures
+    return NextResponse.json(
+      { error: "Authentication service error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -47,13 +56,25 @@ export async function POST(request: NextRequest, context: any) {
     console.error("[Auth Route] POST error:", error);
     if (error instanceof Error) {
       console.error("[Auth Route] Error message:", error.message);
-      console.error("[Auth Route] Error stack:", error.stack);
+      // Only log stack in development to avoid exposing internals in production
+      if (process.env.NODE_ENV === "development") {
+        console.error("[Auth Route] Error stack:", error.stack);
+      }
       if (error.message.includes("database")) {
         console.error(
           "[Auth Route] Database connection failed. Check DATABASE_URL in .env.local"
         );
+        // Return graceful error response for database issues
+        return NextResponse.json(
+          { error: "Authentication service temporarily unavailable" },
+          { status: 503 }
+        );
       }
     }
-    throw error;
+    // Return generic error for unexpected failures
+    return NextResponse.json(
+      { error: "Authentication service error" },
+      { status: 500 }
+    );
   }
 }

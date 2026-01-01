@@ -9,6 +9,9 @@ import { authClient } from "./auth-client"
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
+// Request timeout in milliseconds (10 seconds)
+const REQUEST_TIMEOUT_MS = 10000
+
 export interface ApiRequestOptions extends RequestInit {
   authenticated?: boolean
   headers?: HeadersInit
@@ -49,29 +52,35 @@ export async function apiCall<T = any>(
     // Better Auth JWT plugin provides the token() method via jwtClient plugin
     if (authenticated) {
       try {
-        console.log(`[API] Authenticating request to: ${endpoint}`);
+        if (process.env.NODE_ENV === "development") {
+          console.log(`[API] Authenticating request to: ${endpoint}`);
+        }
 
         // Get JWT token from Better Auth via /api/auth/token endpoint
         // jwtClient plugin provides this token() method
         const { data: tokenResponse, error: tokenError } = await authClient.token()
 
-        console.log("[API] Token fetch response:", {
-          hasToken: !!tokenResponse?.token,
-          tokenError: tokenError?.message || tokenError,
-          tokenLength: tokenResponse?.token?.length || 0,
-        });
+        if (process.env.NODE_ENV === "development") {
+          console.log("[API] Token fetch response:", {
+            hasToken: !!tokenResponse?.token,
+            tokenError: tokenError?.message || tokenError,
+          });
+        }
 
         if (tokenError || !tokenResponse?.token) {
           // No JWT token available - check if we have a session
-          console.warn("[API] No JWT token available, checking session...", { tokenError });
+          if (process.env.NODE_ENV === "development") {
+            console.warn("[API] No JWT token available, checking session...", { tokenError });
+          }
 
           const { data: session } = await authClient.getSession()
 
-          console.log("[API] Session check:", {
-            hasSession: !!session,
-            userId: session?.user?.id,
-            sessionExpiresAt: session?.expiresAt,
-          });
+          if (process.env.NODE_ENV === "development") {
+            console.log("[API] Session check:", {
+              hasSession: !!session,
+              sessionExpiresAt: session?.expiresAt,
+            });
+          }
 
           if (!session) {
             console.error("[API] ✗ No session found - user is not authenticated");
@@ -82,18 +91,19 @@ export async function apiCall<T = any>(
             }
           }
           // Session exists, will be sent via cookies with credentials: "include"
-          console.log("[API] ✓ Using session cookie for authentication");
+          if (process.env.NODE_ENV === "development") {
+            console.log("[API] ✓ Using session cookie for authentication");
+          }
         } else if (tokenResponse.token) {
           // Inject JWT token in Authorization header
           // Format: Authorization: Bearer <jwt-token>
-          const tokenPreview = tokenResponse.token.substring(0, 20) + "...";
           headers.set("Authorization", `Bearer ${tokenResponse.token}`)
-          console.log("[API] ✓ JWT token injected for request:", {
-            endpoint,
-            tokenPreview,
-            fullTokenLength: tokenResponse.token.length,
-            authHeaderSet: true,
-          });
+          if (process.env.NODE_ENV === "development") {
+            console.log("[API] ✓ JWT token injected for request:", {
+              endpoint,
+              authHeaderSet: true,
+            });
+          }
         }
       } catch (error) {
         console.error("[API] ✗ Failed to get auth token:", error);
@@ -107,26 +117,49 @@ export async function apiCall<T = any>(
 
     // Make HTTP request with credentials to include session cookies
     const url = `${API_BASE_URL}${endpoint}`;
-    console.log("[API] Making fetch request:", {
-      url,
-      method: fetchOptions.method || "GET",
-      hasAuthHeader: headers.has("Authorization"),
-      authHeaderValue: headers.get("Authorization")?.substring(0, 30) + "...",
-      credentialsIncluded: true,
-    });
+    if (process.env.NODE_ENV === "development") {
+      console.log("[API] Making fetch request:", {
+        url,
+        method: fetchOptions.method || "GET",
+        hasAuthHeader: headers.has("Authorization"),
+        credentialsIncluded: true,
+      });
+    }
 
-    const response = await fetch(url, {
-      ...fetchOptions,
-      headers,
-      credentials: "include", // Include session cookies in the request
-    });
+    // Add timeout to fetch request using AbortController
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
-    console.log("[API] Response received:", {
-      endpoint,
-      status: response.status,
-      statusText: response.statusText,
-      contentType: response.headers.get("content-type"),
-    });
+    let response: Response
+    try {
+      response = await fetch(url, {
+        ...fetchOptions,
+        headers,
+        credentials: "include", // Include session cookies in the request
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+    } catch (error) {
+      clearTimeout(timeoutId)
+      if (error instanceof Error && error.name === "AbortError") {
+        console.error(`API request timeout (${REQUEST_TIMEOUT_MS}ms): ${endpoint}`)
+        return {
+          ok: false,
+          status: 0,
+          error: `Request timeout - server took too long to respond`,
+        }
+      }
+      throw error
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("[API] Response received:", {
+        endpoint,
+        status: response.status,
+        statusText: response.statusText,
+        contentType: response.headers.get("content-type"),
+      });
+    }
 
     // Task T-242: Enhanced error handling for different HTTP status codes
 
