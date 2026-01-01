@@ -68,8 +68,22 @@ def init_db():
     Safe to call multiple times (idempotent - only creates missing tables).
 
     In production, use Alembic for migrations instead of create_all.
+
+    Raises:
+        Exception: If database connection fails or table creation fails
     """
-    SQLModel.metadata.create_all(engine)
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        logger.info("Initializing database tables...")
+        SQLModel.metadata.create_all(engine)
+        logger.info("✓ Database tables initialized successfully")
+    except Exception as e:
+        logger.error(f"✗ Failed to initialize database: {e}")
+        logger.error(f"  Database URL: {settings.DATABASE_URL}")
+        logger.error(f"  Make sure PostgreSQL is running and DATABASE_URL is correct")
+        raise  # Re-raise to prevent app startup with no database
 
 def drop_db():
     """

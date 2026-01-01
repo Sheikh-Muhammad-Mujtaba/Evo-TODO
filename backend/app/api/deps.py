@@ -9,7 +9,7 @@ from app.core.auth import verify_better_auth_token, get_user_id_from_token
 from app.core.jwks_client import JWKSFetchError
 from app.models.database import get_db
 from app.models.user import User
-from jwt.exceptions import InvalidTokenError
+from jwt.exceptions import InvalidTokenError, DecodeError as JWTDecodeError
 
 # Task T-214: HTTP Bearer security scheme for API documentation
 # This registers the Bearer authentication in FastAPI's OpenAPI (Swagger) UI
@@ -201,7 +201,12 @@ def get_user_id_from_header(
 
     try:
         # Extract token from "Bearer <token>" format
-        scheme, token = authorization.split()
+        parts = authorization.split()
+        if len(parts) != 2:
+            # Must be exactly "Bearer <token>"
+            return None
+
+        scheme, token = parts
         if scheme.lower() != "bearer":
             return None
 
@@ -211,5 +216,5 @@ def get_user_id_from_header(
             return None
 
         return UUID(user_id_str)
-    except (ValueError, JWTError):
+    except (ValueError, InvalidTokenError, JWTDecodeError):
         return None

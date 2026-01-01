@@ -11,16 +11,20 @@
 import { createAuthClient } from "better-auth/react";
 import { jwtClient } from "better-auth/client/plugins";
 
-console.log("[Auth Client] ==================== INITIALIZATION ====================");
-console.log("[Auth Client] Initializing Better Auth client...");
-const authBaseUrl = process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3000";
-console.log("[Auth Client] Base URL:", authBaseUrl);
-console.log("[Auth Client] Plugins: jwtClient() - JWT token retrieval enabled");
+// Development-only logging
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  console.log("[Auth Client] ==================== INITIALIZATION ====================");
+  console.log("[Auth Client] Initializing Better Auth client...");
+  const authBaseUrl = process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3000";
+  console.log("[Auth Client] Base URL:", authBaseUrl);
+  console.log("[Auth Client] Plugins: jwtClient() - JWT token retrieval enabled");
+}
 
 /**
  * Initialize Better Auth client
  * Connects to the server-side auth instance via /api/auth routes
  */
+const authBaseUrl = process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3000";
 export const authClient = createAuthClient({
   baseURL: authBaseUrl,
   plugins: [
@@ -29,14 +33,16 @@ export const authClient = createAuthClient({
   // Client automatically connects to /api/auth routes created by the handler
 });
 
-console.log("[Auth Client] ✓ Client initialized successfully");
-console.log("[Auth Client] Available endpoints:");
-console.log("[Auth Client]   - /api/auth/sign-up (email + password signup)");
-console.log("[Auth Client]   - /api/auth/sign-in (email + password signin)");
-console.log("[Auth Client]   - /api/auth/sign-out (logout)");
-console.log("[Auth Client]   - /api/auth/session (get current session)");
-console.log("[Auth Client]   - /api/auth/token (get JWT token via jwtClient plugin)");
-console.log("[Auth Client] ===========================================================");
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  console.log("[Auth Client] ✓ Client initialized successfully");
+  console.log("[Auth Client] Available endpoints:");
+  console.log("[Auth Client]   - /api/auth/sign-up (email + password signup)");
+  console.log("[Auth Client]   - /api/auth/sign-in (email + password signin)");
+  console.log("[Auth Client]   - /api/auth/sign-out (logout)");
+  console.log("[Auth Client]   - /api/auth/session (get current session)");
+  console.log("[Auth Client]   - /api/auth/token (get JWT token via jwtClient plugin)");
+  console.log("[Auth Client] ===========================================================");
+}
 
 /**
  * Export useSession hook for components

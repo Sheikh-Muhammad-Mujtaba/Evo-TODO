@@ -20,6 +20,7 @@ Phase II Constitution Compliance:
 
 import logging
 from typing import Optional
+import threading
 
 import jwt
 from jwt import PyJWKClient, PyJWKClientError
@@ -30,11 +31,12 @@ logger = logging.getLogger(__name__)
 
 # Global JWKS client instance (thread-safe, singleton)
 _jwks_client: Optional[PyJWKClient] = None
+_jwks_client_lock = threading.Lock()  # Thread safety for concurrent initialization
 
 
 def get_jwks_client() -> PyJWKClient:
     """
-    Get or create the global JWKS client instance.
+    Get or create the global JWKS client instance (thread-safe singleton).
 
     The client is configured with:
     - JWKS endpoint URL from settings (BETTER_AUTH_JWKS_URL)
@@ -47,8 +49,9 @@ def get_jwks_client() -> PyJWKClient:
         PyJWKClient: Configured JWKS client with caching
 
     Thread Safety:
-        This function is thread-safe. Multiple threads can call it
-        concurrently and will share the same client instance.
+        This function is thread-safe using a threading.Lock. Multiple threads
+        can call it concurrently and will share the same client instance.
+        Only the first thread to acquire the lock initializes the client.
 
     Example:
         >>> client = get_jwks_client()
@@ -57,19 +60,23 @@ def get_jwks_client() -> PyJWKClient:
     global _jwks_client
 
     if _jwks_client is None:
-        logger.info(f"Initializing JWKS client for {settings.BETTER_AUTH_JWKS_URL}")
+        # Use lock to ensure only one thread initializes the client
+        with _jwks_client_lock:
+            # Double-check pattern: another thread might have initialized while waiting for lock
+            if _jwks_client is None:
+                logger.info(f"Initializing JWKS client for {settings.BETTER_AUTH_JWKS_URL}")
 
-        _jwks_client = PyJWKClient(
-            uri=settings.BETTER_AUTH_JWKS_URL,
-            cache_keys=True,
-            max_cached_keys=settings.JWKS_CACHE_MAX_KEYS,
-            cache_jwk_set=True,
-            lifespan=settings.JWKS_CACHE_LIFESPAN,
-            headers={"User-Agent": "Evo-TODO-Backend/1.0"},
-            timeout=10,  # 10 second timeout for JWKS fetch
-        )
+                _jwks_client = PyJWKClient(
+                    uri=settings.BETTER_AUTH_JWKS_URL,
+                    cache_keys=True,
+                    max_cached_keys=settings.JWKS_CACHE_MAX_KEYS,
+                    cache_jwk_set=True,
+                    lifespan=settings.JWKS_CACHE_LIFESPAN,
+                    headers={"User-Agent": "Evo-TODO-Backend/1.0"},
+                    timeout=10,  # 10 second timeout for JWKS fetch
+                )
 
-        logger.info("JWKS client initialized successfully")
+                logger.info("JWKS client initialized successfully")
 
     return _jwks_client
 
