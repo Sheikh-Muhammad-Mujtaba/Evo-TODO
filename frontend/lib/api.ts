@@ -309,6 +309,21 @@ export async function apiPost<T = any>(
 }
 
 /**
+ * Task T-227: PUT request helper
+ * Automatically includes JWT token in Authorization header
+ */
+export async function apiPut<T = any>(
+  endpoint: string,
+  body: any
+): Promise<ApiResponse<T>> {
+  return apiCall<T>(endpoint, {
+    method: "PUT",
+    body: JSON.stringify(body),
+    authenticated: true,
+  })
+}
+
+/**
  * Task T-227: PATCH request helper
  * Automatically includes JWT token in Authorization header
  */
