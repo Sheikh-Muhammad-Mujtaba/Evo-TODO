@@ -1,111 +1,256 @@
-# Implementation Plan: JWT Authentication Integration
+# Implementation Plan: UUID Type Mismatch Fix (Better Auth Integration)
 
-**Branch**: `004-jwt-auth` | **Date**: 2026-01-01 | **Phase**: 2.2
-**Specification**: [`/specs/004-jwt-auth/spec.md`](/specs/004-jwt-auth/spec.md)
-**Input**: Feature specification with 5 P1 user stories covering JWT token issuance, frontend attachment, backend verification, and user isolation
+**Branch**: `004-jwt-auth` | **Date**: 2026-01-02 | **Spec**: `specs/004-jwt-auth/spec.md`
+**Input**: Feature specification + Error Analysis (error.txt + pydantic_core.ValidationError)
+**Priority**: CRITICAL - Blocks all API functionality
+
+**Note**: This is a focused remediation plan to resolve the UUID/string type mismatch between Better Auth and backend models.
 
 ## Summary
 
-Implement JWT-based authentication across a decoupled Next.js frontend and FastAPI backend using Better Auth's JWT plugin. The solution enables secure, stateless API authentication with user-scoped data access through asymmetrically-signed tokens verified via JWKS endpoints. This ensures no shared secrets between frontend and backend while maintaining compatibility with the Evo-TODO task management system.
+**Problem**: Backend Pydantic and SQLModel schemas declare `user_id: UUID`, but Better Auth generates string-based user identifiers (e.g., `'w2PYO9wq2FGP2fR111aTZkbPWD5ZyJPC'`). This causes pydantic_core.ValidationError on all list/read operations when Pydantic attempts to validate string identifiers as RFC 4122 UUIDs.
 
-**Key outcomes**:
-- Better Auth JWT plugin configured for EdDSA token issuance
-- Frontend API client with automatic token attachment and expiration handling
-- FastAPI middleware for JWT verification via JWKS
-- All 6 task API endpoints protected with user ownership validation
-- End-to-end user isolation: users can only access/modify their own tasks
+**Solution**: Refactor all backend data models (SQLModel, Pydantic schemas, API contracts) from `UUID` to `str` for user_id field, ensuring type consistency across all layers and database schema.
+
+**Scope**:
+- Update 6 Python model files (SQLModel + Pydantic)
+- Execute 1 database migration
+- Validate JWT token handling
+- Update API contracts documentation
 
 ## Technical Context
 
-**Frontend Language/Version**: TypeScript/Next.js 16+ (App Router)
-**Backend Language/Version**: Python 3.10+ with FastAPI 0.100+
-**Primary Frontend Dependencies**:
-- `better-auth` with JWT and jwtClient plugins
-- `jose` for token utilities
-- Native fetch API for requests
-
-**Primary Backend Dependencies**:
-- `fastapi` for API framework
-- `python-jose[cryptography]` for JWT verification
-- `httpx` for async JWKS fetching
-- `pydantic` for validation
-- `SQLModel` for ORM (existing)
-
-**Storage**: PostgreSQL (Neon Serverless) - managed by SQLModel
-- Better Auth manages: `user`, `session`, `account`, `jwks` tables
-- Application manages: `task` table with `user_id` foreign key
-
-**Testing**:
-- Frontend: Jest, React Testing Library
-- Backend: pytest with async support
-- Integration: Postman/curl or Python requests library
-
-**Target Platform**: Web (SaaS) - Linux servers for both frontend and backend
-
-**Project Type**: Web application with separate frontend (Next.js) and backend (FastAPI)
-
-**Performance Goals**:
-- JWT verification: < 50ms average (from spec SC-003)
-- Full task lifecycle (login → CRUD → logout): < 30s (from spec SC-008)
-- API response time: < 200ms for all endpoints
-
+**Language/Version**: Python 3.13, FastAPI 0.104+, Pydantic 2.5+, SQLModel 0.0.14
+**Primary Dependencies**: FastAPI, SQLModel (SQLAlchemy 2.0), Pydantic v2, Better Auth
+**Storage**: PostgreSQL (Neon Serverless) - todos table, user table (managed by Better Auth)
+**Testing**: pytest, TestClient (FastAPI's async test client)
+**Target Platform**: Linux server (FastAPI backend), async Python environment
+**Project Type**: Full-stack web (backend focus for this fix)
+**Performance Goals**: <100ms latency for list_todos endpoint (p95)
 **Constraints**:
-- User isolation enforced at API boundary - no endpoint returns unfiltered data
-- Token expiration: 7 days (non-negotiable per spec)
-- All requests require valid JWT token
-- Cross-origin requests must come from trusted origins
+- Type safety across all layers (Constitution Principle I)
+- JWT authentication mandatory on all endpoints (Constitution Principle II)
+- Better Auth user_id is immutable once generated
+- Database schema cannot have breaking changes mid-deployment
 
 **Scale/Scope**:
-- Initial: Single-tenant task management
-- Target: 10,000+ concurrent users
-- 6 API endpoints to implement
-- ~2000 LOC total (frontend + backend combined)
+- 1 application (Evo-TODO)
+- ~10 backend files to update
+- ~6 Pydantic/SQLModel schemas affected
+- 1 database table migration
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-**Gate 1: Full-Stack Web Application with Separation of Concerns** ✅ PASS
-- Frontend: Next.js 16+ (App Router) with better-auth
-- Backend: FastAPI async Python
-- Database: PostgreSQL via SQLModel ORM
-- All layers properly separated and decoupled
+**Principle I (Full-Stack Type Safety)**: ✅ PASS
+- Fix ensures type consistency across SQLModel, Pydantic, and API responses
+- All user_id fields will use consistent `str` type
 
-**Gate 2: User-Scoped Data & JWT Authentication (Mandatory)** ✅ PASS
-- All API endpoints require JWT token in Authorization header
-- Every response filtered by user_id derived from JWT token
-- No endpoint returns unfiltered data
-- Token validation at API boundary via middleware/dependencies
+**Principle II (JWT Authentication & User Isolation)**: ✅ PASS
+- JWT token extraction will correctly handle string user_id
+- User isolation filtering by user_id remains intact post-fix
 
-**Gate 3: Clean Code Principles** ✅ PASS
-- Small, focused functions (verify_token, get_user_task, etc.)
-- Clear naming conventions throughout
-- Single responsibility: authentication vs. authorization vs. business logic
-- Dependency injection pattern for testability
-- No complex nesting or coupling
+**Principle III (Clean Code)**: ✅ PASS
+- Minimal, focused changes (single responsibility: UUID→str)
+- No logic changes, purely type harmonization
 
-**Gate 4: Task-Driven Implementation** ✅ PASS
-- All code will map to Task IDs in tasks.md (next phase)
-- Every PR will reference task ID
-- Implementation fully traceable
+**Principle IV (Task-Driven Implementation)**: ✅ PASS
+- All changes mapped to Task T-239 (model refactor) and T-240 (DB migration)
 
-**Gate 5: Performance Over Brevity** ✅ PASS
-- JWT verification via JWKS caching (not refetching every time)
-- Indexed database queries for user_id filtering
-- Async/await for non-blocking I/O
-- Performance targets documented in Technical Context
+**Principle VII (MCP Integration)**: ⚠️ CONDITIONAL
+- **Requirement**: Consult Better Auth MCP for user_id format confirmation
+- **Action**: Query Better Auth MCP before finalizing type changes
+- **Validation**: Confirm that Better Auth user_id is always string, never UUID
 
-**Gate 6: No Manual Code Writing** ✅ PASS
-- This plan serves as template for implementation
-- Quickstart.md provides scaffolded code patterns
-- OpenAPI contract auto-generated from requirements
+**Gate Status**: PASS with MCP consultation as prerequisite
 
-**Gate 7: MCP Integration for Documentation (Mandatory)** ✅ PASS
-- Better Auth MCP: Used for JWT plugin research and configuration
-- Context7 MCP: Used for FastAPI JWT verification patterns
-- All decisions documented with MCP source references
+---
 
-**Result**: ✅ **ALL GATES PASSED** - Plan complies with constitution
+## Implementation Phases
+
+### Phase 0: Pre-Implementation (MCP Consultation)
+
+**Objective**: Confirm Better Auth user_id format before making code changes
+
+**Tasks**:
+1. Query Better Auth MCP: "What is the user ID format from Better Auth? Is it always a string? Provide examples and RFC/format specification."
+2. Document findings in this plan file under "Better Auth User ID Format" section
+3. Validate that string type is correct and immutable
+4. Confirm no other type variants exist in Better Auth ecosystem
+
+**Deliverable**: Research summary confirming string user_id is the standard
+
+**Gate**: Cannot proceed to Phase 1 without MCP confirmation
+
+---
+
+### Phase 1: Model & Schema Refactoring
+
+**Objective**: Update all Python models to use `str` for user_id instead of `UUID`
+
+**Files to Update** (in order):
+
+#### 1.1 Backend Models (app/models/)
+
+**File**: `backend/app/models/user.py`
+- **Current**: Check if `id: UUID` exists
+- **Change**: Ensure `id: str` (should already be correct from previous fixes)
+- **Validation**: Confirm UUID import can be removed if unused elsewhere
+
+**File**: `backend/app/models/todo.py`
+- **Current**: `user_id: UUID = Field(foreign_key="user.id", ...)`
+- **Change**: `user_id: str = Field(foreign_key="user.id", ...)`
+- **Validation**: Foreign key constraint will validate string references to user.id
+
+#### 1.2 Pydantic Schemas (app/schemas/)
+
+**File**: `backend/app/schemas/todo.py`
+- **Current Schemas**:
+  - `TodoResponse`: `user_id: UUID`
+  - `TodoListResponse`: `todos: list[TodoResponse]` (cascades UUID)
+  - `TodoCreate`: No user_id (backend-generated)
+  - `TodoUpdate`: No user_id (immutable)
+  - `TodoToggle`: No user_id (immutable)
+- **Changes**:
+  - `TodoResponse`: `user_id: str`
+  - `TodoListResponse`: No change (auto-applies)
+  - Remove UUID import if unused
+- **Validation**: Pydantic will validate response.data.user_id as string
+
+#### 1.3 API Dependencies (app/api/)
+
+**File**: `backend/app/api/deps.py`
+- **Current**: `get_current_user()` extracts user_id from JWT
+  - Check if UUID conversion happens: `user_id = UUID(payload.get("sub"))`
+  - If yes, remove conversion
+- **Change**: Keep as string: `user_id: str = payload.get("sub")`
+- **Validation**: JWT "sub" claim is always a string, no conversion needed
+
+#### 1.4 API Endpoints (app/api/)
+
+**File**: `backend/app/api/todos.py`
+- **Current**: Returns `TodoListResponse` and `TodoResponse`
+- **Impact**: Automatic (schemas updated in 1.2)
+- **Validation**: Run list_todos endpoint, verify no ValidationError
+
+#### 1.5 Type Imports
+
+**Scan all files** for:
+- `from uuid import UUID` - Remove if no longer used
+- `UUID[...]` - Replace with `str`
+- `uuid.UUID` - Replace with `str`
+
+**Validation**: Check for any remaining UUID references in backend/app/
+
+---
+
+### Phase 2: Database Migration
+
+**Objective**: Update PostgreSQL schema to support string user_id
+
+**Migration Steps**:
+
+#### 2.1 Connect to Neon Database
+```bash
+# Get connection string from .env or Neon dashboard
+psql $DATABASE_URL
+```
+
+#### 2.2 Migrate todos table
+```sql
+-- Check current schema
+\d todos
+
+-- Convert column type (PostgreSQL allows this for string/UUID conversion)
+ALTER TABLE todos ALTER COLUMN user_id TYPE VARCHAR(255);
+
+-- Verify migration
+\d todos
+
+-- Check that data persists
+SELECT id, user_id, title FROM todos LIMIT 1;
+```
+
+#### 2.3 Verify Foreign Key Constraint
+```sql
+-- Check if foreign key still valid
+SELECT * FROM information_schema.constraint_column_usage
+WHERE table_name = 'todos' AND column_name = 'user_id';
+```
+
+**Validation**: No errors during migration, foreign key remains intact
+
+---
+
+### Phase 3: Integration Testing
+
+**Objective**: Verify end-to-end functionality with string user_id
+
+**Tests to Run**:
+
+#### 3.1 Unit Tests
+```bash
+cd backend
+pytest tests/test_models/test_todo.py -v
+pytest tests/test_schemas/test_todo.py -v
+```
+
+#### 3.2 Integration Tests
+```bash
+pytest tests/test_api/test_todos.py -v
+# Expected: All 6 endpoints pass (list, create, get, update status, update fields, delete)
+```
+
+#### 3.3 Manual Testing
+```bash
+# Start backend
+cd backend
+uvicorn app.main:app --reload
+
+# In another terminal, test with curl
+curl -H "Authorization: Bearer <JWT_TOKEN>" http://localhost:8000/api/todos
+
+# Expected: 200 OK with list of todos (no ValidationError)
+```
+
+**Validation**: No pydantic_core.ValidationError on any endpoint
+
+---
+
+### Phase 4: Documentation Update
+
+**Objective**: Document the type change and Better Auth integration
+
+**Files to Update**:
+
+#### 4.1 `specs/004-jwt-auth/plan.md` (this file)
+- Add section: "Better Auth User ID Format"
+- Document: user_id is string, example format, immutability
+
+#### 4.2 `specs/004-jwt-auth/spec.md`
+- Add to NFR section: "User ID Type: Better Auth generates string identifiers (~33 char alphanumeric)"
+- Add to Architecture: "User ID is immutable and generated by Better Auth"
+
+#### 4.3 API Contract (if exists)
+- Update user_id field type from UUID to string in OpenAPI schema
+- Update examples to use string user_id
+
+---
+
+## Better Auth User ID Format
+
+**Status**: AWAITING MCP CONFIRMATION (Phase 0)
+
+- **Type**: `str` (confirmed by error analysis)
+- **Format**: Alphanumeric, ~33 characters (example: `w2PYO9wq2FGP2fR111aTZkbPWD5ZyJPC`)
+- **Immutability**: Generated once, never changes
+- **RFC Compliance**: NOT RFC 4122 UUID format
+- **Standardization**: Specific to Better Auth
+
+**MCP Confirmation**: [PENDING - to be filled after Phase 0]
+
+---
 
 ## Project Structure
 
@@ -123,145 +268,54 @@ specs/[###-feature]/
 
 ### Source Code (repository root)
 
-**Selected**: Web application with separate frontend and backend
-
-#### Frontend (Next.js)
-
-```text
-frontend/
-├── src/
-│   ├── lib/
-│   │   ├── auth-client.ts           # Better Auth client with JWT plugin
-│   │   └── api-client.ts            # API client with token attachment
-│   ├── components/
-│   │   ├── login-form.tsx           # Sign in form, stores JWT
-│   │   ├── task-list.tsx            # List tasks for authenticated user
-│   │   ├── task-create.tsx          # Create new task
-│   │   └── task-item.tsx            # Edit/delete individual task
-│   ├── hooks/
-│   │   ├── use-auth.ts              # useAuth hook from better-auth
-│   │   └── use-auth-error.ts        # Token expiration handler
-│   ├── app/
-│   │   ├── login/page.tsx           # Login route
-│   │   ├── dashboard/page.tsx       # Protected task dashboard
-│   │   └── layout.tsx               # Root layout with auth context
-│   └── env.ts                       # Type-safe environment variables
-├── tests/
-│   ├── api-client.test.ts           # Test token attachment
-│   ├── components/
-│   │   ├── login-form.test.tsx
-│   │   └── task-list.test.tsx
-│   └── integration/
-│       └── e2e.test.ts              # End-to-end: login → create → delete
-├── .env.local                       # Local development env vars
-└── package.json                     # Dependencies: better-auth, jose, etc.
-```
-
-#### Backend (FastAPI)
+This fix impacts only the backend data layer. No frontend changes required.
 
 ```text
 backend/
-├── src/
-│   ├── auth/
-│   │   └── jwt.py                  # JWT verification & JWKS fetching
+├── app/
 │   ├── models/
-│   │   └── task.py                 # Task Pydantic models
-│   ├── routes/
-│   │   └── tasks.py                # All 6 task endpoints (GET/POST/PUT/DELETE/PATCH)
-│   ├── database.py                 # SQLModel session & async setup
-│   ├── config.py                   # Configuration (JWT URLs, etc.)
-│   └── main.py                     # FastAPI app setup, CORS, route registration
+│   │   ├── user.py          # User model (VERIFY id: str)
+│   │   ├── todo.py          # Todo model (CHANGE user_id: UUID → str)
+│   │   └── database.py      # Database session/engine
+│   │
+│   ├── schemas/
+│   │   ├── todo.py          # Pydantic schemas (CHANGE user_id: UUID → str)
+│   │   └── __init__.py
+│   │
+│   ├── api/
+│   │   ├── deps.py          # JWT dependency (VERIFY no UUID conversion)
+│   │   ├── todos.py         # Endpoints (AUTO-UPDATED via schema changes)
+│   │   └── __init__.py
+│   │
+│   ├── main.py              # FastAPI app
+│   └── __init__.py
+│
 ├── tests/
-│   ├── test_jwt.py                 # Test token verification
-│   ├── test_tasks.py               # Test all 6 endpoints
-│   ├── test_user_isolation.py      # Test cross-user access rejected
-│   └── fixtures/
-│       └── conftest.py             # Test fixtures: db, auth, client
-├── .env                            # Env vars: DATABASE_URL, JWT config
-├── requirements.txt                # Dependencies: fastapi, python-jose, etc.
-└── alembic/                        # Database migrations (existing)
+│   ├── test_models/
+│   │   └── test_todo.py     # Model tests (RUN: verify string user_id)
+│   ├── test_schemas/
+│   │   └── test_todo.py     # Schema tests (RUN: verify serialization)
+│   ├── test_api/
+│   │   └── test_todos.py    # API endpoint tests (RUN: integration tests)
+│   └── __init__.py
+│
+└── .env                      # Database connection string (USED for migration)
 ```
 
 **Structure Decision**:
-- Separate frontend (Next.js) and backend (FastAPI) directories
-- Clear separation of concerns: auth (better-auth) vs. api (fastapi)
-- Each layer independently testable
-- Routes/endpoints organized by domain (tasks)
-- Database management via SQLModel + Alembic migrations
-- Configuration externalized via environment variables
+- Focused backend-only changes
+- No frontend modifications needed
+- Database migration executed via psql/Neon console
+- All model and schema files co-located with API layer
 
 ## Complexity Tracking
 
-✅ **No constitution violations** - All gates passed. No justifications needed.
+> **Status**: NO CONSTITUTION VIOLATIONS - All checks passed
 
----
+This fix is a **type harmonization** effort with **zero architectural complexity**:
+- No new patterns or abstractions introduced
+- Minimal code changes (6 files, all straightforward string replacements)
+- Single database migration (type conversion, no data transformation)
+- No breaking changes to API contracts (user_id remains, type just changes)
 
-## Implementation Roadmap
-
-### Phase 1: Foundation (Week 1)
-1. Better Auth JWT plugin configuration and migration
-2. Database schema validation (jwks table created)
-3. Frontend API client with token attachment logic
-4. Token storage and retrieval in localStorage
-
-### Phase 2: Frontend Integration (Week 2)
-1. Login form with JWT token storage
-2. Auth context/hook for session management
-3. Token expiration detection and re-authentication prompts
-4. Protected routes (redirect to login if no token)
-
-### Phase 3: Backend Implementation (Week 2-3)
-1. JWT verification middleware setup
-2. JWKS fetching and caching logic
-3. User ownership validation dependency
-4. All 6 task endpoint implementations with user filtering
-
-### Phase 4: Testing & Integration (Week 3)
-1. Unit tests for token verification
-2. API endpoint tests with valid/invalid tokens
-3. Cross-user isolation tests (403 Forbidden)
-4. End-to-end integration tests (login → CRUD → logout)
-
-### Phase 5: Hardening & Deployment (Week 4)
-1. Error handling and edge cases
-2. Performance optimization (JWKS caching)
-3. Security audit and penetration testing
-4. Production deployment and monitoring
-
----
-
-## Success Metrics
-
-| Metric | Target | How to Verify |
-|--------|--------|---------------|
-| All endpoints require JWT | 100% | Each endpoint returns 401 without token |
-| User isolation enforced | 100% | Cross-user requests return 403 Forbidden |
-| Token verification latency | < 50ms | Load test with 1000 concurrent requests |
-| API response time | < 200ms | Benchmark all 6 endpoints |
-| Session persistence | 100% | Token survives browser refresh |
-| Token expiration handling | 100% | Expired tokens prompt re-auth |
-| Code coverage | > 80% | pytest/jest coverage reports |
-
----
-
-## Artifacts Delivered
-
-| Artifact | Status | Purpose |
-|----------|--------|---------|
-| `spec.md` | ✅ Complete | Feature requirements and acceptance criteria |
-| `research.md` | ✅ Complete | Technical decisions and rationales |
-| `data-model.md` | ✅ Complete | Entity definitions and database schema |
-| `api-contract.openapi.json` | ✅ Complete | API endpoint specifications |
-| `quickstart.md` | ✅ Complete | Step-by-step implementation guide |
-| `plan.md` (this file) | ✅ Complete | Architecture and roadmap |
-| `tasks.md` | ⏳ Next Phase | Task list for implementation (`/sp.tasks`) |
-
----
-
-## References
-
-- **Specification**: `/specs/004-jwt-auth/spec.md`
-- **Better Auth JWT Docs**: https://better-auth.com/docs/plugins/jwt
-- **FastAPI Security**: https://fastapi.tiangolo.com/tutorial/security/
-- **Constitution**: `.specify/memory/constitution.md`
-- **OpenAPI Contract**: `/specs/004-jwt-auth/contracts/api-contract.openapi.json`
+**Simplicity Principle Applied**: The smallest viable refactoring that resolves the type mismatch without introducing unnecessary abstractions or patterns.
