@@ -133,11 +133,18 @@ As a user, I want to perform all task operations (create, read, update, delete, 
 - **FR-017**: Both frontend and backend MUST use the same shared secret key (BETTER_AUTH_SECRET) for JWT signing and verification
 - **FR-018**: System MUST handle token expiration gracefully; frontend should prompt user to re-authenticate
 
+### Non-Functional Requirements
+
+- **NFR-001**: User ID Type: Better Auth generates string identifiers (~33 char alphanumeric, e.g., 'w2PYO9wq2FGP2fR111aTZkbPWD5ZyJPC'), NOT RFC 4122 UUID format
+- **NFR-002**: All backend models, schemas, and API responses MUST use `str` type for user_id fields to match Better Auth's format
+- **NFR-003**: Database schema MUST store user_id as VARCHAR(255) to support string format
+- **NFR-004**: Type safety MUST be consistent across all layers: SQLModel models, Pydantic schemas, and API responses
+
 ### Key Entities
 
-- **User**: Authenticated user with ID, email, and session information
-- **JWT Token**: Self-contained credential issued by Better Auth containing user ID, email, and expiration
-- **Task**: User-owned task entity with ID, title, description, completion status, and user ID reference
+- **User**: Authenticated user with ID (string from Better Auth), email, and session information
+- **JWT Token**: Self-contained credential issued by Better Auth containing user ID (string), email, and expiration
+- **Task**: User-owned task entity with ID (UUID), title, description, completion status, and user_id reference (string)
 
 ## Success Criteria *(mandatory)*
 
@@ -159,9 +166,10 @@ As a user, I want to perform all task operations (create, read, update, delete, 
 - Better Auth is already integrated into the frontend project with basic authentication working
 - FastAPI backend is already scaffolded and accessible to the frontend
 - A shared secret (BETTER_AUTH_SECRET) can be configured in both frontend and backend environments
-- JWT tokens will use HS256 (HMAC SHA-256) algorithm for signing
-- User ID is the unique identifier for filtering and access control
+- JWT tokens will use EdDSA/Ed25519 algorithm for signing (per Better Auth documentation)
+- User ID is the unique identifier for filtering and access control, provided by Better Auth as a string (~33 chars)
 - The user_id in the URL is the source of truth for access control (backend verifies it matches JWT token)
+- Better Auth generates string-based user IDs (NOT RFC 4122 UUIDs); backend must accept string type
 
 ---
 
