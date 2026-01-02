@@ -240,15 +240,22 @@ curl -H "Authorization: Bearer <JWT_TOKEN>" http://localhost:8000/api/todos
 
 ## Better Auth User ID Format
 
-**Status**: AWAITING MCP CONFIRMATION (Phase 0)
+**Status**: ✅ MCP CONFIRMATION COMPLETE (Phase 0)
 
-- **Type**: `str` (confirmed by error analysis)
-- **Format**: Alphanumeric, ~33 characters (example: `w2PYO9wq2FGP2fR111aTZkbPWD5ZyJPC`)
-- **Immutability**: Generated once, never changes
-- **RFC Compliance**: NOT RFC 4122 UUID format
-- **Standardization**: Specific to Better Auth
+- **Type**: `str` (confirmed by Better Auth MCP documentation)
+- **Format**: Alphanumeric string, ~33 characters (example: `w2PYO9wq2FGP2fR111aTZkbPWD5ZyJPC`)
+- **Generation Method**: `generateId()` function uses `crypto.randomUUID()` internally
+- **Immutability**: Generated once at user creation, never changes
+- **RFC Compliance**: NOT RFC 4122 compliant - uses custom alphanumeric format
+- **Standardization**: Default behavior in Better Auth; immutable per user session lifecycle
 
-**MCP Confirmation**: [PENDING - to be filled after Phase 0]
+**MCP Confirmation Details**:
+- Source: Better Auth MCP documentation (database.mdx)
+- User model structure: `id: string` field type
+- Default ID generation: `crypto.randomUUID()` returns string format
+- Confirmed: Better Auth consistently uses string identifiers for user IDs
+- No UUID variants or alternative formats found in Better Auth ecosystem
+- Conclusion: Backend must accept `str` type for all user_id fields
 
 ---
 

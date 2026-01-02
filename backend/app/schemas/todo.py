@@ -131,7 +131,7 @@ class TodoResponse(BaseModel):
     Example Response:
         {
             "id": "550e8400-e29b-41d4-a716-446655440000",
-            "user_id": "660e8400-e29b-41d4-a716-446655440001",
+            "user_id": "w2PYO9wq2FGP2fR111aTZkbPWD5ZyJPC",
             "title": "Buy groceries",
             "description": "Milk, eggs, bread",
             "is_complete": false,
@@ -143,7 +143,7 @@ class TodoResponse(BaseModel):
         ...,
         description="Todo unique identifier (UUID)"
     )
-    user_id: UUID = Field(
+    user_id: str = Field(
         ...,
         description="Owner user ID (for API validation only, not shown in frontend)"
     )
@@ -174,7 +174,7 @@ class TodoResponse(BaseModel):
         json_schema_extra = {
             "example": {
                 "id": "550e8400-e29b-41d4-a716-446655440000",
-                "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                "user_id": "w2PYO9wq2FGP2fR111aTZkbPWD5ZyJPC",
                 "title": "Buy groceries",
                 "description": "Milk, eggs, bread",
                 "is_complete": False,
@@ -225,7 +225,7 @@ class TodoListResponse(BaseModel):
                 "todos": [
                     {
                         "id": "550e8400-e29b-41d4-a716-446655440000",
-                        "user_id": "660e8400-e29b-41d4-a716-446655440001",
+                        "user_id": "w2PYO9wq2FGP2fR111aTZkbPWD5ZyJPC",
                         "title": "Buy groceries",
                         "description": "Milk, eggs, bread",
                         "is_complete": False,
