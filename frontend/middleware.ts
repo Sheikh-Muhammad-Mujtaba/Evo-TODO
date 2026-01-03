@@ -94,6 +94,6 @@ export const config = {
      * - /api/auth (auth API routes are always public)
      * - /login, /signup (auth pages are public)
      */
-    '/dashboard(?:/|$)',
+    '/dashboard/:path*',
   ],
 }
