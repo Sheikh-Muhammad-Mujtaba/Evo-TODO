@@ -12,9 +12,6 @@ import { getSessionCookie } from 'better-auth/cookies'
  */
 const PROTECTED_ROUTES = [
   '/dashboard',
-  '/todo',
-  '/profile',
-  '/settings',
 ]
 
 /**
@@ -81,16 +78,13 @@ export function middleware(request: NextRequest) {
 
 /**
  * Configure which routes the middleware applies to
- * Apply to dashboard and other protected routes
+ * Apply to dashboard and its subroutes
  */
 export const config = {
   matcher: [
     /*
      * Match protected routes:
-     * - /dashboard(s) and subroutes
-     * - /todo(s) and subroutes
-     * - /profile(s) and subroutes
-     * - /settings(s) and subroutes
+     * - /dashboard and all subroutes
      *
      * Exclude:
      * - _next/static (static files)
@@ -100,6 +94,6 @@ export const config = {
      * - /api/auth (auth API routes are always public)
      * - /login, /signup (auth pages are public)
      */
-    '/(dashboard|todo|profile|settings)(?:/|$)',
+    '/dashboard(?:/|$)',
   ],
 }

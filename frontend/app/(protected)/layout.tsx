@@ -1,15 +1,13 @@
-// Task T-242 + T-250 + T-253: Protected routes layout
+// Task T-242: Protected routes layout
 // Enforces authentication for all routes under (protected) group
-// Redirects unauthenticated users to /login
-// Includes Navigation component for all protected pages
+// Server-side session validation with middleware
+// Client-side fallback for browser protection
 
-"use client"
+'use client'
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useSession } from "@/lib/auth-client"
-import { Navigation } from "@/components/Navigation"
-import { logAuthCookies } from "@/lib/utils"
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useSession } from '@/lib/auth-client'
 
 export default function ProtectedLayout({
   children,
@@ -19,29 +17,10 @@ export default function ProtectedLayout({
   const router = useRouter()
   const { data: session, isPending } = useSession()
 
-  console.log("[Protected Layout] Checking authentication...", {
-    isPending,
-    hasSession: !!session,
-    userId: session?.user?.id,
-  });
-
   useEffect(() => {
-    console.log("[Protected Layout] useEffect triggered:", {
-      isPending,
-      hasSession: !!session,
-    });
-
-    // Task T-250: Redirect unauthenticated users to login
+    // Client-side auth check (middleware handles server-side)
     if (!isPending && !session) {
-      console.warn("[Protected Layout] ✗ No session - redirecting to /login");
-      logAuthCookies("Protected-NoSession");
-      router.push("/login")
-    } else if (!isPending && session) {
-      console.log("[Protected Layout] ✓ Session authenticated:", {
-        userId: session.user?.id,
-        userEmail: session.user?.email,
-      });
-      logAuthCookies("Protected-Authenticated");
+      router.push('/login')
     }
   }, [session, isPending, router])
 
@@ -54,19 +33,10 @@ export default function ProtectedLayout({
     )
   }
 
-  // Task T-250: Prevent rendering protected content for unauthenticated users
+  // Prevent rendering protected content for unauthenticated users
   if (!session) {
     return null
   }
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-gray-950">
-      {/* Task T-253: Navigation component for user info and logout */}
-      <Navigation />
-
-      <main className="container mx-auto py-6">
-        {children}
-      </main>
-    </div>
-  )
+  return <>{children}</>
 }

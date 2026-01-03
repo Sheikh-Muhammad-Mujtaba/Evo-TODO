@@ -13,17 +13,15 @@ interface SidebarProps {
  * Task T020: Sidebar Component
  *
  * Features:
- * 1. Navigation menu with 4 main sections
+ * 1. Navigation menu with main sections
  * 2. Active link highlighting based on current route
  * 3. Responsive design with close button for mobile
  * 4. Icons for each navigation item
  * 5. Proper dark mode support
  *
  * Navigation Items:
- * - Dashboard (/dashboard)
- * - Tasks (/dashboard/tasks)
- * - Profile (/dashboard/profile)
- * - Settings (/dashboard/settings)
+ * - Dashboard (/dashboard) - Overview and task summary
+ * - Todos (/dashboard/todos) - Full task management interface
  */
 export function Sidebar({ onClose }: SidebarProps) {
   const pathname = usePathname()
@@ -38,9 +36,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const navItems = [
     { href: '/dashboard', icon: LayoutGrid, label: 'Dashboard' },
-    { href: '/dashboard/tasks', icon: CheckSquare, label: 'Tasks' },
-    { href: '/dashboard/profile', icon: User, label: 'Profile' },
-    { href: '/dashboard/settings', icon: Settings, label: 'Settings' },
+    { href: '/dashboard/todos', icon: CheckSquare, label: 'Tasks' },
   ]
 
   return (
