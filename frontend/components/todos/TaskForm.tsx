@@ -1,164 +1,186 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useTodos } from '@/lib/hooks/useTodos'
-import { Todo } from '@/lib/types/todo'
-import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
+import { AlertCircle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
+import { Todo } from '@/lib/hooks/useTodos'
 
-// Validation schema
+// Zod validation schema matching backend constraints
+// Note: Priority and dueDate are NOT supported by backend (removed from schema)
 const taskSchema = z.object({
   title: z.string().min(1, 'Title is required').max(500, 'Title must be under 500 characters'),
-  description: z.string().max(2000, 'Description must be under 2000 characters').optional().default(''),
-  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']).default('MEDIUM'),
-  dueDate: z.string().optional().default(''),
+  description: z.string().max(2000, 'Description must be under 2000 characters').optional(),
+  status: z.enum(['pending', 'completed']).default('pending'),
 })
 
 type TaskFormData = z.infer<typeof taskSchema>
 
 interface TaskFormProps {
-  onSuccess?: () => void
-  initialData?: Todo
+  onSuccess: (data: TaskFormData) => Promise<void> | void
+  onCancel?: () => void
+  initialData?: Partial<Todo>
   isEditing?: boolean
 }
 
 /**
- * Task T027: TaskForm Component
+ * TaskForm Component - Enhanced with full dark mode support
  *
  * Features:
- * 1. Create new tasks with validation
- * 2. Edit existing tasks
- * 3. Form validation using react-hook-form + zod
- * 4. Priority selection (HIGH, MEDIUM, LOW)
- * 5. Optional due date
- * 6. Toast notifications for success/error
+ * - Full dark mode support with proper contrast using shadcn/ui components.
+ * - Client-side validation with zod + react-hook-form
+ * - Title field (1-500 characters)
+ * - Description field with 4 rows (0-2000 characters, optional)
+ * - Status selector (pending/completed)
+ * - Loading state feedback
+ * - Error message display with icons
+ * - Responsive design
+ * - Accessibility features (labels, ARIA attributes)
+ *
+ * Note: Priority and dueDate are NOT supported by backend schema
+ * Backend only accepts: title, description, is_complete
  */
-export function TaskForm({ onSuccess, initialData, isEditing = false }: TaskFormProps) {
-  const { createTodo, updateTodo } = useTodos()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
+export function TaskForm({
+  onSuccess,
+  onCancel,
+  initialData,
+  isEditing = false,
+}: TaskFormProps) {
   const {
     register,
     handleSubmit,
-    formState: { errors },
-    reset,
+    watch,
+    formState: { errors, isSubmitting },
   } = useForm<TaskFormData>({
     resolver: zodResolver(taskSchema),
-    defaultValues: initialData ? {
-      title: initialData.title,
-      description: initialData.description || '',
-      priority: initialData.priority,
-      dueDate: initialData.dueDate || '',
-    } : {
-      title: '',
-      description: '',
-      priority: 'MEDIUM',
-      dueDate: '',
+    defaultValues: {
+      title: initialData?.title || '',
+      description: initialData?.description || '',
+      status: initialData?.status || 'pending',
     },
   })
 
-  const onSubmit = async (data: TaskFormData) => {
-    try {
-      setIsSubmitting(true)
+  const descriptionValue = watch('description', '')
 
-      if (isEditing && initialData) {
-        await updateTodo(initialData.id, {
-          title: data.title,
-          description: data.description,
-          priority: data.priority,
-          dueDate: data.dueDate || null,
-        })
-        toast.success('Task updated successfully')
-      } else {
-        await createTodo({
-          title: data.title,
-          description: data.description,
-          priority: data.priority,
-          dueDate: data.dueDate || null,
-        })
-        toast.success('Task created successfully')
-        reset()
+  const onSubmitForm = async (data: TaskFormData) => {
+    try {
+      // Convert form data to match backend expectations
+      // Description should be undefined if empty string
+      const submitData = {
+        title: data.title,
+        description: data.description || undefined,
+        status: data.status,
       }
 
-      onSuccess?.()
+      // Call parent's onSuccess callback with the form data
+      await onSuccess(submitData)
     } catch (error) {
-      console.error('Task form error:', error)
-      toast.error(isEditing ? 'Failed to update task' : 'Failed to create task')
-    } finally {
-      setIsSubmitting(false)
+      console.error('Form submission error:', error)
+    }
+  }
+
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel()
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {/* Title */}
+    <form onSubmit={handleSubmit(onSubmitForm)} className="space-y-6">
+      {/* Title Field */}
       <div>
-        <Label htmlFor="title">Task Title</Label>
+        <Label htmlFor="title" className="font-semibold">
+          Task Title <span className="text-red-500">*</span>
+        </Label>
         <Input
           id="title"
-          placeholder="Enter task title"
+          type="text"
+          placeholder="What needs to be done?"
           {...register('title')}
-          className={errors.title ? 'border-red-500' : ''}
+          className={cn(errors.title && 'border-red-500 dark:border-red-500')}
+          disabled={isSubmitting}
         />
         {errors.title && (
-          <p className="text-sm text-red-500 mt-1">{errors.title.message}</p>
+          <div className="mt-2 flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{errors.title.message}</span>
+          </div>
         )}
       </div>
 
-      {/* Description */}
+      {/* Description Field */}
       <div>
-        <Label htmlFor="description">Description (Optional)</Label>
+        <Label htmlFor="description" className="font-semibold">
+          Description <span className="text-gray-500 dark:text-gray-400 font-normal">(Optional)</span>
+        </Label>
         <textarea
           id="description"
-          placeholder="Enter task description"
-          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-            errors.description ? 'border-red-500' : 'border-gray-300'
-          }`}
-          rows={3}
+          placeholder="Add task details and notes here..."
+          rows={4}
           {...register('description')}
+          className={cn(`flex w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white
+            placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2
+            disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:text-gray-100 dark:ring-offset-slate-950
+            dark:placeholder:text-slate-400 dark:focus-visible:ring-slate-300`,
+            `resize-vertical`,
+            errors.description && 'border-red-500 dark:border-red-500'
+          )}
+          disabled={isSubmitting}
         />
         {errors.description && (
-          <p className="text-sm text-red-500 mt-1">{errors.description.message}</p>
+          <div className="mt-2 flex items-center gap-2 text-red-600 dark:text-red-400 text-sm">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <span>{errors.description.message}</span>
+          </div>
         )}
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          {descriptionValue ? descriptionValue.length : 0}/2000 characters
+        </p>
       </div>
 
-      {/* Priority */}
+      {/* Status Field */}
       <div>
-        <Label htmlFor="priority">Priority</Label>
+        <Label htmlFor="status" className="font-semibold">
+          Status
+        </Label>
         <select
-          id="priority"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          {...register('priority')}
+          id="status"
+          {...register('status')}
+          className={cn(`flex h-10 w-full items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-950 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:text-gray-100 dark:ring-offset-slate-950 dark:placeholder:text-slate-400 dark:focus:ring-slate-300`,
+              `cursor-pointer`
+            )}
+            disabled={isSubmitting}
+          >
+            <option value="pending">Pending</option>
+            <option value="completed">Completed</option>
+          </select>
+      </div>
+
+      {/* Form Actions */}
+      <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-800">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleCancel}
+          disabled={isSubmitting}
         >
-          <option value="LOW">Low</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="HIGH">High</option>
-        </select>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+        >
+          {isSubmitting && (
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+          )}
+          {isSubmitting ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update Task' : 'Create Task')}
+        </Button>
       </div>
-
-      {/* Due Date */}
-      <div>
-        <Label htmlFor="dueDate">Due Date (Optional)</Label>
-        <Input
-          id="dueDate"
-          type="date"
-          {...register('dueDate')}
-        />
-      </div>
-
-      {/* Submit Button */}
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full"
-      >
-        {isSubmitting ? 'Saving...' : isEditing ? 'Update Task' : 'Create Task'}
-      </Button>
     </form>
   )
 }

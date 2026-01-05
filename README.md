@@ -8,6 +8,57 @@ A production-ready full-stack todo application with JWT authentication, built wi
 - **Database**: PostgreSQL (Neon for production, Docker for local development)
 - **Authentication**: JWT with shared secret (Better Auth integration planned for Phase III)
 
+## Project Summary
+
+This document summarizes the state of the Evo-TODO project, including the project structure and a summary of previously fixed issues.
+
+### Project Structure
+
+The project is a full-stack todo application with a Next.js frontend and a FastAPI backend.
+
+-   **Frontend:** Next.js, React, TypeScript, Tailwind CSS
+-   **Backend:** FastAPI, Python, SQLModel
+-   **Database:** PostgreSQL
+-   **Authentication:** JWT with Better Auth
+
+Key directories:
+
+-   `frontend/`: Contains the Next.js application.
+-   `backend/`: Contains the FastAPI application.
+-   `specs/`: Contains the project specifications and plans.
+-   `history/`: Contains the prompt history records.
+
+### Previously Fixed Issues
+
+#### JWT Authentication
+
+-   **Issue:** Users were immediately logged out after logging in.
+-   **Root Cause:** A mismatch between the database schema expected by the backend and the schema created by Better Auth. The backend was querying a `users` table while Better Auth created a `user` table. There was also a type mismatch for the user ID (UUID vs. string).
+-   **Fix:** The backend models were updated to match the Better Auth schema. The table name was changed to `user`, and the user ID type was changed to `str`.
+
+#### Middleware
+
+-   **Issue:** Login functionality broke due to improper session validation in the middleware.
+-   **Root Cause:** Attempting to make database calls in the Next.js Edge Runtime middleware.
+-   **Fix:** Switched to a cookie-based optimistic redirect approach in the middleware.
+
+#### CRUD Endpoints
+
+-   **Issue:** Missing `getTodoById` method, incorrect `PATCH` request format, and missing `description` field support.
+-   **Fix:** The `useTodos` hook was updated to include the `getTodoById` method and to send the correct payload for `PATCH` requests.
+
+#### Better Auth Integration
+
+-   **Issue:** `Module not found: Can't resolve 'better-auth/react'`.
+-   **Root Cause:** Incorrect import path in `lib/auth.ts` and `lib/auth-client.ts`.
+-   **Fix:** The import path was corrected to `better-auth/react`.
+
+#### General Frontend
+
+-   **Issue:** 404 errors on `/login` and `/signup` pages.
+-   **Root Cause:** Build cache issues and missing environment variables.
+-   **Fix:** The build cache was cleared, and the `.env.local` file was configured correctly.
+
 ## Phase II Monorepo Structure
 
 ```

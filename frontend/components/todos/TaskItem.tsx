@@ -17,12 +17,11 @@ interface TaskItemProps {
  * Task T029: TaskItem Component
  *
  * Features:
- * 1. Display individual task with title, description, priority
+ * 1. Display individual task with title, description
  * 2. Toggle task completion status
  * 3. Edit button to open edit modal/form
  * 4. Delete button with confirmation
- * 5. Priority badge (HIGH, MEDIUM, LOW)
- * 6. Visual feedback with icons
+ * 5. Visual feedback with icons
  */
 export function TaskItem({ task, onEdit, onTaskUpdate }: TaskItemProps) {
   const { updateTodo, deleteTodo } = useTodos()

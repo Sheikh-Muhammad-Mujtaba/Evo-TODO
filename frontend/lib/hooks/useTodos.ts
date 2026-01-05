@@ -8,6 +8,8 @@ import { useEffect, useState } from "react"
 import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from "../api"
 
 export type TodoStatus = "pending" | "completed"
+// Note: Priority is not supported by backend in Phase II
+// Kept for future potential use
 export type TodoPriority = "low" | "medium" | "high"
 
 export interface Todo {
@@ -16,14 +18,12 @@ export interface Todo {
   title: string
   description?: string
   status: TodoStatus
-  priority: TodoPriority
-  dueDate?: string
   createdAt: string
   updatedAt: string
 }
 
 export type TodoFilter = "all" | "pending" | "completed"
-export type TodoSort = "title" | "priority" | "dueDate" | "createdAt"
+export type TodoSort = "title" | "createdAt"
 
 /**
  * Task T008: Request schema for creating a todo (POST /api/todos)
@@ -49,6 +49,7 @@ export interface TodoStatusUpdateRequest {
 export interface TodoFieldsUpdateRequest {
   title?: string
   description?: string
+  is_complete?: boolean
 }
 
 /**
@@ -137,20 +138,11 @@ export function useTodos(): UseTodosReturn {
       filtered = filtered.filter((todo) => todo.status === "completed")
     }
 
-    // Apply sorting
+    // Apply sorting (note: priority and dueDate not supported by backend)
     const sorted = [...filtered].sort((a, b) => {
       switch (currentSort) {
         case "title":
           return a.title.localeCompare(b.title)
-        case "priority": {
-          const priorityOrder = { low: 0, medium: 1, high: 2 }
-          return priorityOrder[b.priority] - priorityOrder[a.priority]
-        }
-        case "dueDate":
-          return (
-            new Date(a.dueDate || "").getTime() -
-            new Date(b.dueDate || "").getTime()
-          )
         case "createdAt":
         default:
           return (
@@ -166,6 +158,7 @@ export function useTodos(): UseTodosReturn {
   /**
    * Convert backend todo response to frontend format
    * Backend returns snake_case, frontend uses camelCase
+   * Note: Priority and dueDate are NOT supported by backend in Phase II
    *
    * @param {TodoResponse} backendTodo - Backend response in snake_case format
    * @returns {Todo} Frontend format in camelCase
@@ -177,8 +170,6 @@ export function useTodos(): UseTodosReturn {
       title: backendTodo.title,
       description: backendTodo.description,
       status: backendTodo.is_complete ? "completed" : "pending",
-      priority: backendTodo.priority || "low",
-      dueDate: backendTodo.due_date,
       createdAt: backendTodo.created_at,
       updatedAt: backendTodo.updated_at,
     }
@@ -343,7 +334,7 @@ export function useTodos(): UseTodosReturn {
       if (response.ok && response.data) {
         // Transform and add new todo to state
         const transformedTodo = transformTodoResponse(response.data)
-        setTodos([...todos, transformedTodo])
+        await refreshTodos()
         return transformedTodo
       } else {
         throw new Error(response.error || "Failed to create todo")
@@ -414,9 +405,7 @@ export function useTodos(): UseTodosReturn {
       if (response.ok && response.data) {
         // Transform and update todo in state
         const transformedTodo = transformTodoResponse(response.data)
-        setTodos(
-          todos.map((todo) => (todo.id === id ? transformedTodo : todo))
-        )
+        await refreshTodos()
         return transformedTodo
       } else {
         throw new Error(response.error || "Failed to update todo status")
@@ -486,6 +475,7 @@ export function useTodos(): UseTodosReturn {
       const backendData: TodoFieldsUpdateRequest = {}
       if (data.title !== undefined) backendData.title = data.title
       if (data.description !== undefined) backendData.description = data.description
+      if (data.status !== undefined) backendData.is_complete = data.status === 'completed'
       // Note: priority and dueDate not supported by backend PUT endpoint
 
       // Only proceed if at least one field is being updated
@@ -498,9 +488,7 @@ export function useTodos(): UseTodosReturn {
       if (response.ok && response.data) {
         // Transform and update todo in state
         const transformedTodo = transformTodoResponse(response.data)
-        setTodos(
-          todos.map((todo) => (todo.id === id ? transformedTodo : todo))
-        )
+        await refreshTodos()
         return transformedTodo
       } else {
         throw new Error(response.error || "Failed to update todo fields")
@@ -552,7 +540,7 @@ export function useTodos(): UseTodosReturn {
 
       if (response.ok) {
         // Remove todo from state
-        setTodos(todos.filter((todo) => todo.id !== id))
+        await refreshTodos()
       } else {
         throw new Error(response.error || "Failed to delete todo")
       }
