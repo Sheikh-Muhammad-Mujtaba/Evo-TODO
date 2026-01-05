@@ -120,7 +120,7 @@ export function SignupForm() {
         // JWT token is automatically stored by Better Auth client
         console.log("[SignupForm] ✓ Signup successful, redirecting to /todos");
         console.log("[SignupForm] ===========================================================");
-        router.push("/todos")
+        router.push("/dashboard/todos")
       } else {
         console.warn("[SignupForm] No response from signup");
         logAuthCookies("SignupForm-NoResponse");

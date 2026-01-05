@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Navbar } from './Navbar'
 import { Sidebar } from './Sidebar'
 
-export function DashboardLayout({ children }) {
+export function DashboardUI({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   return (
     <div className='flex h-screen bg-white dark:bg-gray-950'>

@@ -91,7 +91,7 @@ export function LoginForm() {
         // JWT token is automatically stored by Better Auth client
         console.log("[LoginForm] ✓ Login successful, redirecting to /todos");
         console.log("[LoginForm] ===========================================================");
-        router.push("/todos")
+        router.push("/dashboard/todos")
       }
     } catch (err) {
       console.error("[LoginForm] ✗ Login failed with error:", err);

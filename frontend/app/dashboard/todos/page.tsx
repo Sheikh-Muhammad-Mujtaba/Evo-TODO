@@ -1,4 +1,3 @@
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout'
 import { TasksContainer } from '@/components/todos/TasksContainer'
 
 /**
@@ -9,19 +8,17 @@ import { TasksContainer } from '@/components/todos/TasksContainer'
  */
 export default function DashboardTodosPage() {
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <section>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-            Task Management
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Create, edit, and manage all your tasks in one place
-          </p>
-        </section>
+    <div className="space-y-6">
+      <section>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          Task Management
+        </h1>
+        <p className="mt-2 text-gray-600 dark:text-gray-400">
+          Create, edit, and manage all your tasks in one place
+        </p>
+      </section>
 
-        <TasksContainer showCreateForm={true} />
-      </div>
-    </DashboardLayout>
+      <TasksContainer showCreateForm={true} />
+    </div>
   )
 }

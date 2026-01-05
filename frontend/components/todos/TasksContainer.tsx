@@ -1,12 +1,11 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { useTodos } from '@/lib/hooks/useTodos'
+import { useTodos, Todo, TodoStatus } from '@/lib/hooks/useTodos'
 import { useBulkSelection } from '@/lib/hooks/useBulkSelection'
 import { TaskForm } from './TaskForm'
 import { TaskList } from './TaskList'
 import { BulkActions } from './BulkActions'
-import { Todo } from '@/lib/types/todo'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,7 +26,7 @@ interface TasksContainerProps {
  * 5. Refreshes tasks on CRUD operations
  */
 export function TasksContainer({ showCreateForm = true }: TasksContainerProps) {
-  const { todos, isLoading, refreshTodos } = useTodos()
+  const { todos, isLoading, refreshTodos, createTodo, updateTodoFields, updateTodo } = useTodos()
   const { selectedIds } = useBulkSelection()
   const [showForm, setShowForm] = useState(false)
   const [editingTask, setEditingTask] = useState<Todo | null>(null)
@@ -37,10 +36,41 @@ export function TasksContainer({ showCreateForm = true }: TasksContainerProps) {
     refreshTodos()
   }, [])
 
-  const handleFormSuccess = () => {
-    setShowForm(false)
-    setEditingTask(null)
-    refreshTodos()
+  const handleFormSuccess = async (data: { title: string; description?: string; status: string }) => {
+    try {
+      if (editingTask) {
+        // Update existing task
+        // First, update title/description with PUT
+        await updateTodoFields(editingTask.id, {
+          title: data.title,
+          description: data.description,
+        })
+
+        // Then, update status separately with PATCH if different from current
+        if (editingTask.status !== data.status) {
+          await updateTodo(editingTask.id, {
+            status: data.status as TodoStatus,
+          })
+        }
+
+        toast.success('Task updated successfully')
+      } else {
+        // Create new task with POST (status not supported on creation)
+        await createTodo({
+          title: data.title,
+          description: data.description,
+        })
+        toast.success('Task created successfully')
+      }
+
+      setShowForm(false)
+      setEditingTask(null)
+      refreshTodos()
+    } catch (error) {
+      console.error('Form submission error:', error)
+      toast.error(editingTask ? 'Failed to update task' : 'Failed to create task')
+      throw error // Let's form handle error state
+    }
   }
 
   const handleEdit = (task: Todo) => {
@@ -54,7 +84,7 @@ export function TasksContainer({ showCreateForm = true }: TasksContainerProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-h-screen">
       {/* Header with Create Button */}
       {showCreateForm && !showForm && (
         <div className="flex items-center justify-between">

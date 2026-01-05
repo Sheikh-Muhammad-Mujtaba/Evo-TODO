@@ -22,10 +22,10 @@ import { NextRequest, NextResponse } from "next/server";
 // Wrap the handlers to catch database errors
 const { GET: baseGET, POST: basePOST } = toNextJsHandler(auth.handler);
 
-export async function GET(request: NextRequest, context: any) {
+export async function GET(request: NextRequest) {
   try {
     console.log("[Auth Route] GET request to:", request.nextUrl.pathname);
-    return await baseGET(request, context);
+    return await baseGET(request);
   } catch (error) {
     console.error("[Auth Route] GET error:", error);
     if (error instanceof Error && error.message.includes("database")) {
@@ -46,10 +46,10 @@ export async function GET(request: NextRequest, context: any) {
   }
 }
 
-export async function POST(request: NextRequest, context: any) {
+export async function POST(request: NextRequest) {
   try {
     console.log("[Auth Route] POST request to:", request.nextUrl.pathname);
-    const response = await basePOST(request, context);
+    const response = await basePOST(request);
     console.log("[Auth Route] POST response status:", response.status);
     return response;
   } catch (error) {
