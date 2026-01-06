@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useBulkSelection } from '@/lib/hooks/useBulkSelection'
-import { useTodos } from '@/lib/hooks/useTodos'
 import { toast } from 'sonner'
 import { Trash2, CheckCircle2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -23,7 +22,7 @@ interface BulkActionsProps {
  * 5. Clear selection button
  */
 export function BulkActions({ selectedCount, onActionsComplete }: BulkActionsProps) {
-  const { selectedIds, clearSelection } = useBulkSelection()
+  const { clearSelection } = useBulkSelection()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
 

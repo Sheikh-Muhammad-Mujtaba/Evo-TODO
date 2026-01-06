@@ -1,7 +1,7 @@
 # Task T-210/T-223: Database connection configuration and session management
 # Task T-223: Neon PostgreSQL serverless support
 from sqlmodel import create_engine, SQLModel, Session
-from sqlalchemy.pool import NullPool, QueuePool
+from sqlalchemy.pool import NullPool
 from sqlalchemy import text, inspect
 from app.core.config import settings
 import logging
@@ -27,20 +27,17 @@ def get_database_url() -> str:
 # Get the database URL with correct driver
 database_url = get_database_url()
 
-# Task T-223: Create engine with Neon-optimized connection pooling
-# For Neon Serverless PostgreSQL, we need:
-# - Smaller pool size (serverless scales, don't hold connections)
-# - Connection timeout for idle connections
-# - Proper pool pre-ping to detect stale connections
+# Task T-223: Create engine optimized for serverless environments
+# For Vercel/Neon Serverless PostgreSQL:
+# - Use NullPool: No persistent connections (each request gets fresh connection)
+# - pool_pre_ping: Verify connections are alive (detect stale connections)
+# - pool_recycle: Prevent connection timeout issues
+# - No pool_size/overflow: NullPool doesn't use these
 engine = create_engine(
     database_url,
     echo=False,  # Set to True for SQL logging (development only)
-    # Task T-223: Neon-specific pooling configuration
-    poolclass=NullPool if "sqlite" in database_url else QueuePool,
-    # Task T-223: Serverless optimizations
-    pool_size=2,  # Reduce for serverless (scales on-demand)
-    max_overflow=3,  # Small overflow for temporary spikes
-    pool_pre_ping=True,  # Verify connections before use (Neon important)
+    poolclass=NullPool,  # No pooling - ideal for serverless (new connection per request)
+    pool_pre_ping=True,  # Verify connections before use (detect stale connections)
     pool_recycle=300,  # Recycle connections after 5 mins (Neon timeout)
 )
 

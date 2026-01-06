@@ -16,17 +16,27 @@ from app.core.config import settings
 from app.models.database import init_db
 from app.api.todos import router as todos_router
 
+# Flag to track if database has been initialized (for idempotent startup)
+_db_initialized = False
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Task T-210: Application lifecycle - database initialization
 
-    On startup: Create all database tables
+    On startup: Create all database tables (idempotent - only runs once)
     On shutdown: Cleanup (if needed)
+
+    For Vercel serverless: Only initializes once, not on every cold start.
+    Multiple concurrent invocations are safe due to idempotent table creation.
     """
-    # Startup: Initialize database tables
-    init_db()
+    global _db_initialized
+
+    # Startup: Initialize database tables (only once)
+    if not _db_initialized:
+        init_db()
+        _db_initialized = True
     yield
     # Shutdown: Cleanup (nothing needed for now)
 

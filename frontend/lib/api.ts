@@ -78,7 +78,7 @@ export async function apiCall<T = any>(
           if (process.env.NODE_ENV === "development") {
             console.log("[API] Session check:", {
               hasSession: !!session,
-              sessionExpiresAt: session?.expiresAt,
+              // sessionExpiresAt: session?.expiresAt,
             });
           }
 

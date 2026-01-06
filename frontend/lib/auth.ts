@@ -110,4 +110,4 @@ try {
 export const auth = authInstance as ReturnType<typeof betterAuth>;
 
 export type Session = typeof auth.$Infer.Session;
-export type User = typeof auth.$Infer.User;
+export type User = typeof auth.$Infer.Session.user;

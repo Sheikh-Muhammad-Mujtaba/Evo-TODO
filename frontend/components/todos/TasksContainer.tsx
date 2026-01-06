@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useTodos, Todo, TodoStatus } from '@/lib/hooks/useTodos'
 import { useBulkSelection } from '@/lib/hooks/useBulkSelection'
 import { TaskForm } from './TaskForm'
@@ -55,10 +55,11 @@ export function TasksContainer({ showCreateForm = true }: TasksContainerProps) {
 
         toast.success('Task updated successfully')
       } else {
-        // Create new task with POST (status not supported on creation)
+        // Create new task with POST
         await createTodo({
           title: data.title,
           description: data.description,
+          status: 'pending',
         })
         toast.success('Task created successfully')
       }

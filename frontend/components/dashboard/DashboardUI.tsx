@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import { useState } from 'react'
+import { ReactNode } from 'react'
 import { Navbar } from './Navbar'
 import { Sidebar } from './Sidebar'
 
-export function DashboardUI({ children }: { children: React.ReactNode }) {
+export function DashboardUI({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   return (
     <div className='flex h-screen bg-white dark:bg-gray-950'>

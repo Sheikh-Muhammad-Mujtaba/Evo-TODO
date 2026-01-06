@@ -73,14 +73,14 @@ export function useAuth(): UseAuthReturn {
       if (betterAuthSession) {
         console.log("[useAuth] Session found, fetching token...")
         // Get JWT token for API requests
-        const { data: tokenData, error: tokenError } = await authClient.token()
+        const { data: tokenData } = await authClient.token()
 
         const token = tokenData?.token || ""
 
         setSession({
           user: betterAuthSession.user,
           token: token,
-          expiresAt: betterAuthSession.expiresAt,
+          expiresAt: betterAuthSession.session.expiresAt.getTime(),
         })
         setUser(betterAuthSession.user)
         setIsAuthd(true)

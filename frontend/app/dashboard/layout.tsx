@@ -1,7 +1,6 @@
 import { auth } from '@/lib/auth'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import React from 'react'
 import { DashboardUI } from '@/components/dashboard/DashboardUI'
 
 export default async function DashboardLayout({

@@ -12,7 +12,7 @@ dependencies = [
     "sqlmodel>=0.0.14",
     "pydantic-settings>=2.1.0",
     "pydantic[email]>=2.0.0",
-    "psycopg[binary]>=3.1.0",
+    "psycopg[binary,pool]>=3.1.0",  # Added pool support for serverless
     "httpx>=0.25.0",
     "PyJWT[crypto]>=2.8.0",
 ]

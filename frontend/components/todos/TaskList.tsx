@@ -1,7 +1,6 @@
 'use client'
 
-import React from 'react'
-import { Todo } from '@/lib/types/todo'
+import { Todo } from '@/lib/hooks/useTodos'
 import { TaskItem } from './TaskItem'
 import { EmptyState } from '@/components/common/EmptyState'
 
@@ -44,7 +43,7 @@ export function TaskList({
   }
 
   if (tasks.length === 0) {
-    return <EmptyState message={emptyMessage} />
+    return <EmptyState title={emptyMessage} />
   }
 
   // Group tasks by status

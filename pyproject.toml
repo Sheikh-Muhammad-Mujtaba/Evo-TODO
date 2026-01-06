@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "todo-app"
 version = "1.0.0"
 description = "CLI Todo application with in-memory storage"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 authors = [
     {name = "AI Assistant", email = "noreply@anthropic.com"}
 ]

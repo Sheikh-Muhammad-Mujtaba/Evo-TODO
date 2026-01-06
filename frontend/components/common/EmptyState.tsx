@@ -3,13 +3,14 @@
 
 "use client"
 
+import { ReactNode } from 'react'
 import { AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export interface EmptyStateProps {
   title: string
   description?: string
-  icon?: React.ReactNode
+  icon?: ReactNode
   action?: {
     label: string
     onClick: () => void

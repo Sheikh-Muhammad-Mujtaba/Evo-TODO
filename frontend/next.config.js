@@ -4,7 +4,10 @@ const nextConfig = {
   // This was causing authClient.signOut() to be called twice, triggering auto-logout
   experimental: {
 		optimizePackageImports: ['better-auth']
-	}
+	},
+  turbopack: { // Moved here
+    root: '../', // Set monorepo root for Turbopack
+  },
 }
 
 module.exports = nextConfig

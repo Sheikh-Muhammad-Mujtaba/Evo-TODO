@@ -1,6 +1,5 @@
 'use client'
 
-import React from 'react'
 import { Menu, LogOut, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useSession, signOut } from '@/lib/auth-client'
@@ -8,10 +7,9 @@ import { useState, useEffect } from 'react'
 
 interface NavbarProps {
   onMenuToggle: () => void
-  isSidebarOpen: boolean
 }
 
-export function Navbar({ onMenuToggle, isSidebarOpen }: NavbarProps) {
+export function Navbar({ onMenuToggle }: NavbarProps) {
   const { data: session, isPending } = useSession()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)

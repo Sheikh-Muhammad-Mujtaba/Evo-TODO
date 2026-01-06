@@ -38,7 +38,7 @@ const PROTECTED_ROUTES = [
  * - Always validate session on the server for protected actions
  * - Full session validation must happen in pages/routes using auth.api.getSession()
  */
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Check if route is protected

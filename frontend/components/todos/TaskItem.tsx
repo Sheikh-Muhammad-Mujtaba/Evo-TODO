@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
-import { Todo } from '@/lib/types/todo'
-import { useTodos } from '@/lib/hooks/useTodos'
+import { useState } from 'react'
+import { Todo, useTodos } from '@/lib/hooks/useTodos'
 import { toast } from 'sonner'
 import { Edit2, Trash2, CheckCircle2, Circle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -27,13 +26,6 @@ export function TaskItem({ task, onEdit, onTaskUpdate }: TaskItemProps) {
   const { updateTodo, deleteTodo } = useTodos()
   const [isUpdating, setIsUpdating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-
-  // Priority badge colors
-  const priorityColors = {
-    HIGH: 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400',
-    MEDIUM: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400',
-    LOW: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400',
-  }
 
   const handleToggleComplete = async () => {
     try {
@@ -119,17 +111,6 @@ export function TaskItem({ task, onEdit, onTaskUpdate }: TaskItemProps) {
 
         {/* Metadata */}
         <div className="flex flex-wrap gap-2 mt-2">
-          {/* Priority badge */}
-          <span className={`text-xs font-medium px-2 py-1 rounded ${priorityColors[task.priority]}`}>
-            {task.priority}
-          </span>
-
-          {/* Due date */}
-          {task.dueDate && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              Due: {new Date(task.dueDate).toLocaleDateString()}
-            </span>
-          )}
         </div>
       </div>
 
