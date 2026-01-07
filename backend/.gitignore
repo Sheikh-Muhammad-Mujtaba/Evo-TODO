@@ -29,4 +29,8 @@ wheels/
 htmlcov/
 .mypy_cache/
 .DS_Store
+<<<<<<< HEAD
 .vercel
+=======
+.vercel
+>>>>>>> phase-2

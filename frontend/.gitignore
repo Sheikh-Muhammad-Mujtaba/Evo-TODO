@@ -12,4 +12,8 @@ dist
 build
 .turbo
 
+<<<<<<< HEAD
 .vercel
+=======
+.vercel
+>>>>>>> phase-2
