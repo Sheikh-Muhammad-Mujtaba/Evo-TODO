@@ -7,7 +7,7 @@
 import { authClient } from "./auth-client"
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+  process.env.NEXT_PUBLIC_API_URL //|| "http://localhost:8000"
 
 // Request timeout in milliseconds (10 seconds)
 const REQUEST_TIMEOUT_MS = 10000
