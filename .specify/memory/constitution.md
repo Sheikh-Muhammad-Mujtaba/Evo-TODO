@@ -92,7 +92,7 @@ Maintain the professional App Shell, Shadcn/UI components, and existing Light/Da
 
 - **Main Release Branch**: `phase-3` (final merged branch for Phase III)
 - **Feature Branches**: `phase3-XXY-feature-name` (e.g., `phase3-001-memory`, `phase3-002-stats`)
-- **Rules**: All PRs target `phase-3`. Feature branches are short-lived and deleted after merge.
+- **Rules**: All PRs target `phase-3`. Feature branches are short-lived and deleted after merge. After final completion/update, push all code to `phase-3` branch.
 
 ## Non-Negotiable Constraints
 
