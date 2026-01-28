@@ -11,7 +11,7 @@ Phase II Constitution Compliance:
 
 from functools import lru_cache
 from typing import Optional
-from pydantic import field_validator
+from pydantic import field_validator, ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -38,8 +38,15 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
-    class Config:
-        env_file = ".env"
+    # Gemini API Configuration
+    GEMINI_API_KEY: str = ""
+    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    MODEL_NAME: str = "gemini/gemini-pro"
+
+    # MCP Server Configuration
+    MCP_SERVER_URL: str = "http://localhost:8001"
+
+    model_config = ConfigDict(env_file=".env", extra="ignore")
 
     @property
     def cors_origins_list(self) -> list[str]:
