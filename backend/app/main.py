@@ -15,9 +15,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.models.database import init_db
 from app.api.todos import router as todos_router
+from app.schemas.chat import ChatRequest
+from app.agents.chat_agent import get_agent_response, get_initialized_triage_agent
+from agents import Agent
+from agents.mcp import MCPServerStreamableHttp
+from typing import Optional
 
 # Flag to track if database has been initialized (for idempotent startup)
 _db_initialized = False
+_triage_agent: Optional[Agent] = None
 
 
 @asynccontextmanager
@@ -32,13 +38,34 @@ async def lifespan(app: FastAPI):
     Multiple concurrent invocations are safe due to idempotent table creation.
     """
     global _db_initialized
+    global _triage_agent
 
     # Startup: Initialize database tables (only once)
     if not _db_initialized:
         init_db()
         _db_initialized = True
-    yield
-    # Shutdown: Cleanup (nothing needed for now)
+    
+    # Initialize the MCP HTTP server and the triage agent
+    # The MCP server should be running separately on port 8001
+    try:
+        print(f"[INFO] Attempting to connect to MCP server at {settings.MCP_SERVER_URL}/mcp")
+        async with MCPServerStreamableHttp(
+            name="TodoMCP",
+            params={
+                "url": settings.MCP_SERVER_URL + "/mcp",
+            },
+            cache_tools_list=True,
+        ) as mcp_server:
+            print("[INFO] Successfully connected to MCP server")
+            _triage_agent = await get_initialized_triage_agent(mcp_server)
+            yield
+    except Exception as e:
+        print(f"[WARNING] Failed to connect to MCP server: {str(e)}")
+        print("[INFO] Application will continue without MCP server functionality")
+        print("[INFO] Make sure to start the MCP server separately:")
+        print(f"[INFO]   cd backend && python -m mcp_server.server")
+        yield
+
 
 
 # Task T-202: Create FastAPI app instance
@@ -60,6 +87,33 @@ app.add_middleware(
 
 # Task T-216: Register Todo CRUD endpoints
 app.include_router(todos_router)
+
+
+@app.post("/api/chat")
+async def chat(request: ChatRequest):
+    """
+    Chat endpoint to interact with the agent.
+    
+    Parameters:
+    - message: The user's message
+    - user_id: The user's ID (required)
+    - conversation_id: The conversation ID (auto-generated if not provided)
+    """
+    if _triage_agent is None:
+        raise RuntimeError("Triage agent not initialized.")
+    
+    # Validate that conversation_id is not None
+    if request.conversation_id is None:
+        raise ValueError("conversation_id cannot be None")
+    
+    response = await get_agent_response(
+        triage_agent=_triage_agent,
+        user_input=request.message,
+        user_id=request.user_id,
+        conversation_id=request.conversation_id,
+    )
+    return {"response": response, "conversation_id": request.conversation_id}
+
 
 # Task T-202: Health check endpoint
 @app.get("/health")
