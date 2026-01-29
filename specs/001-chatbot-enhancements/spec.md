@@ -5,6 +5,15 @@
 **Status**: Draft  
 **Input**: User description: "create a spects and new branch with the feature name ok now also update the frontend to of chat bot to get correct tasks values in the welcome message correctly handle the session like not its not handling the session also update the backend chatbot agnt instructions to validate before creating task that is there any task like that if not then create and same as other tool calls like update etc like amke it fully robust"
 
+## Clarifications
+
+### Session 2026-01-30
+- Q: How should the system define "similar" tasks to prevent duplicates? → A: Case-insensitive, whitespace-trimmed title comparison. The agent is responsible for running the tool to check for duplicates.
+- Q: Should rate limiting be implemented for the API endpoints? → A: Yes, implement a basic rate limit per user.
+- Q: What is the expected behavior for error states other than duplicate tasks? → A: Display a generic error message to the user and log details on the backend.
+- Q: What are the requirements for observability (logging, metrics, tracing)? → A: Structured logging and basic API metrics.
+- Q: What are the requirements for reliability and availability? → A: 99.9% uptime with a documented recovery plan.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Robust Task Creation (Priority: P1)
@@ -62,13 +71,21 @@ As a user, I want the application to correctly handle my session, so I don't hav
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST validate for duplicate or highly similar tasks before creating a new task.
+- **FR-001**: The system MUST validate for duplicate tasks using a case-insensitive, whitespace-trimmed comparison of task titles.
 - **FR-002**: The system MUST provide the user with feedback if a duplicate task is found.
 - **FR-003**: The frontend MUST display the correct and updated task values in the welcome message.
 - **FR-004**: The system MUST maintain user session state across interactions.
 - **FR-005**: The system MUST handle session expiration and re-authentication gracefully.
-- **FR-006**: The backend chatbot agent's instructions MUST be updated to include the task validation logic.
+- **FR-006**: The backend chatbot agent's instructions MUST be updated to include the task validation logic, and the agent is responsible for running the tool to check for duplicates.
 - **FR-007**: All chatbot tool calls (e.g., update, delete) MUST be made more robust with proper validation and error handling.
+- **FR-008**: The system MUST implement a basic rate limit (e.g., 100 requests per minute per user) for all API endpoints to prevent abuse.
+- **FR-009**: For all errors other than duplicate tasks, the system MUST display a generic error message to the user and log detailed error information on the backend.
+- **FR-010**: The system MUST implement structured logging for all backend services and basic metrics for API request/response rates and latencies.
+
+### Non-Functional Requirements
+
+- **NFR-001**: The service MUST aim for 99.9% uptime.
+- **NFR-002**: There MUST be a documented recovery plan in case of failure.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -79,7 +96,6 @@ As a user, I want the application to correctly handle my session, so I don't hav
 ### Assumptions
 
 - The chatbot has access to the user's task list.
-- "Similar task" for duplication check can be determined by comparing task titles with a case-insensitive match.
 - The application has a login/authentication system in place.
 
 ## Success Criteria *(mandatory)*
