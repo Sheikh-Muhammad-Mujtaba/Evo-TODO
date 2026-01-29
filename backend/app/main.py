@@ -9,7 +9,7 @@ Phase II Backend - Full-stack todo application with:
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
@@ -23,7 +23,6 @@ from typing import Optional
 
 # Flag to track if database has been initialized (for idempotent startup)
 _db_initialized = False
-_triage_agent: Optional[Agent] = None
 
 
 @asynccontextmanager
@@ -38,33 +37,13 @@ async def lifespan(app: FastAPI):
     Multiple concurrent invocations are safe due to idempotent table creation.
     """
     global _db_initialized
-    global _triage_agent
 
     # Startup: Initialize database tables (only once)
     if not _db_initialized:
         init_db()
         _db_initialized = True
-    
-    # Initialize the MCP HTTP server and the triage agent
-    # The MCP server should be running separately on port 8001
-    try:
-        print(f"[INFO] Attempting to connect to MCP server at {settings.MCP_SERVER_URL}/mcp")
-        async with MCPServerStreamableHttp(
-            name="TodoMCP",
-            params={
-                "url": settings.MCP_SERVER_URL + "/mcp",
-            },
-            cache_tools_list=True,
-        ) as mcp_server:
-            print("[INFO] Successfully connected to MCP server")
-            _triage_agent = await get_initialized_triage_agent(mcp_server)
-            yield
-    except Exception as e:
-        print(f"[WARNING] Failed to connect to MCP server: {str(e)}")
-        print("[INFO] Application will continue without MCP server functionality")
-        print("[INFO] Make sure to start the MCP server separately:")
-        print(f"[INFO]   cd backend && python -m mcp_server.server")
-        yield
+
+    yield
 
 
 
@@ -89,29 +68,52 @@ app.add_middleware(
 app.include_router(todos_router)
 
 
+from app.api.deps import get_current_user
+from app.models.user import User
+
 @app.post("/api/chat")
-async def chat(request: ChatRequest):
+async def chat(request: ChatRequest, current_user: User = Depends(get_current_user)):
     """
     Chat endpoint to interact with the agent.
-    
+
     Parameters:
     - message: The user's message
-    - user_id: The user's ID (required)
     - conversation_id: The conversation ID (auto-generated if not provided)
+
+    Security: Creates a per-request MCP connection with user-specific headers.
+    The MCP server validates the X-Internal-Secret and uses X-User-ID for data isolation.
     """
-    if _triage_agent is None:
-        raise RuntimeError("Triage agent not initialized.")
-    
     # Validate that conversation_id is not None
     if request.conversation_id is None:
         raise ValueError("conversation_id cannot be None")
-    
-    response = await get_agent_response(
-        triage_agent=_triage_agent,
-        user_input=request.message,
-        user_id=request.user_id,
-        conversation_id=request.conversation_id,
-    )
+
+    # Create MCP connection per-request with user-specific headers
+    # This ensures the MCP server knows which user is making the request
+    async with MCPServerStreamableHttp(
+        name="TodoMCP",
+        params={
+            "url": settings.MCP_SERVER_URL + "/mcp",
+            "headers": {
+                "X-User-ID": current_user.id,
+                "X-Internal-Secret": settings.MCP_INTERNAL_SECRET,
+            },
+            "timeout": 60,  # 60 seconds timeout for HTTP requests
+        },
+        cache_tools_list=True,
+        client_session_timeout_seconds=120,  # 120 seconds for session timeout
+        max_retry_attempts=3,  # Retry up to 3 times on failure
+        retry_backoff_seconds_base=1.0,  # Exponential backoff starting at 1 second
+    ) as mcp_server:
+        # Initialize triage agent with user-specific MCP connection
+        triage_agent = await get_initialized_triage_agent(mcp_server)
+
+        response = await get_agent_response(
+            triage_agent=triage_agent,
+            user_input=request.message,
+            user_id=current_user.id,
+            conversation_id=request.conversation_id,
+        )
+
     return {"response": response, "conversation_id": request.conversation_id}
 
 

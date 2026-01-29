@@ -40,15 +40,17 @@ export default function ChatPage() {
     setIsLoading(true);
 
     try {
+      // JWT token is now retrieved server-side in the API route
+      // Cookies are automatically forwarded, so no Authorization header needed
       const res = await fetch(`/api/chat/${session.user.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.token}`,
         },
+        credentials: 'include', // Ensure cookies are sent
         body: JSON.stringify({
           message: input,
-          conversation_id: session.conversationId || undefined,
+          conversation_id: undefined,
         }),
       });
 

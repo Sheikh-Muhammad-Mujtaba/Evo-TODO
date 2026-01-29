@@ -1,55 +1,89 @@
-import { auth } from "@/lib/auth";
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import { headers } from 'next/headers';
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
   try {
-    console.log('[Chat API] Request received for userId:', await params);
     const { userId } = await params;
-    const headers = await request.headers;
-    const session = await auth.api.getSession({ headers });
-    console.log('[Chat API] Session check:', !!session, session?.user.id === userId ? 'OK' : 'FAIL');
-    if (!session || session.user.id !== userId) {
-      console.log('[Chat API] Unauthorized');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { message, conversation_id } = await req.json();
+
+    // Get session server-side using Better Auth
+    const reqHeaders = await headers();
+    const session = await auth.api.getSession({
+      headers: reqHeaders,
+    });
+
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
-    const body = await request.json();
-    const { message, conversation_id } = body;
-    console.log('[Chat API] Message:', message, 'Conversation:', conversation_id);
+    // Fetch JWT token from Better Auth's token endpoint
+    // Forward cookies to authenticate the token request
+    const cookie = req.headers.get('cookie') || '';
+    const tokenRes = await fetch(`${req.nextUrl.origin}/api/auth/token`, {
+      method: 'GET',
+      headers: {
+        cookie,
+      },
+    });
 
-    // Proxy to backend FastAPI chat endpoint (adjust URL as needed)
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
-    console.log('[Chat API] Backend URL:', backendUrl + '/api/chat');
-    console.log('[Chat API] Auth header:', request.headers.get('Authorization') || 'none');
-    console.log('[Chat API] Proxy body:', { message, conversation_id, user_id: userId });
+    if (!tokenRes.ok) {
+      console.error('Failed to get JWT token:', tokenRes.status);
+      return NextResponse.json(
+        { error: 'Failed to retrieve authentication token' },
+        { status: 401 }
+      );
+    }
 
-    const backendRes = await fetch(`${backendUrl}/api/chat`, {
+    const tokenData = await tokenRes.json();
+    const jwtToken = tokenData.token;
+
+    if (!jwtToken) {
+      console.error('JWT token not found in response');
+      return NextResponse.json(
+        { error: 'Authentication token not available' },
+        { status: 401 }
+      );
+    }
+
+    // Forward the request to the Python backend with the JWT token
+    const backendRes = await fetch(`${BACKEND_URL}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: request.headers.get('Authorization') || '',
+        Authorization: `Bearer ${jwtToken}`,
       },
       body: JSON.stringify({
         message,
         conversation_id,
-        user_id: userId,
       }),
     });
 
-    console.log('[Chat API] Backend response status:', backendRes.status, backendRes.statusText);
-
     if (!backendRes.ok) {
-      const errorData = await backendRes.json().catch(() => ({}));
-      console.log('[Chat API] Backend error data:', errorData);
-      return NextResponse.json({ error: errorData.error || 'Backend chat error' }, { status: backendRes.status });
+      const errorData = await backendRes.json();
+      console.error('Backend error:', errorData);
+      return NextResponse.json(
+        { error: errorData.detail || 'Error from backend' },
+        { status: backendRes.status }
+      );
     }
 
     const data = await backendRes.json();
-    console.log('[Chat API] Backend success data:', data);
     return NextResponse.json(data);
   } catch (error) {
-    console.error('[Chat API] Full error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('API route error:', error);
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }
 

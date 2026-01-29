@@ -45,6 +45,8 @@ class Settings(BaseSettings):
 
     # MCP Server Configuration
     MCP_SERVER_URL: str = "http://localhost:8001"
+    # Internal secret for MCP server authentication (agent -> MCP server trust)
+    MCP_INTERNAL_SECRET: str = "mcp-internal-secret-change-in-production"
 
     model_config = ConfigDict(env_file=".env", extra="ignore")
 
