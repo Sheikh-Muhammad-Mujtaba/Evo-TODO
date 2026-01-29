@@ -93,3 +93,6 @@ If ALL true: Suggest ADR, wait for consent.
 
 ## Code Standards
 See `.specify/memory/constitution.md` for quality, testing, performance, security, and architecture principles.
+
+## Recent Changes
+- 001-chatbot-enhancements: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
