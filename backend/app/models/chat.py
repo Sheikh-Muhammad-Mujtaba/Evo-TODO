@@ -2,6 +2,7 @@ from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 from uuid import UUID, uuid4
 from datetime import datetime
+from sqlalchemy import func
 
 class Conversation(SQLModel, table=True):
     __tablename__ = "conversations"
@@ -12,7 +13,10 @@ class Conversation(SQLModel, table=True):
     context_summary: Optional[str] = Field(default=None, sa_column_kwargs={"nullable": True})
     message_count: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column_kwargs={"onupdate": func.now()}
+    )
 
     messages: List["Message"] = Relationship(back_populates="conversation")
 
