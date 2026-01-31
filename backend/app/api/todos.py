@@ -106,6 +106,47 @@ async def list_todos(
 
     return TodoListResponse(todos=todos, total=total)
 
+
+@router.get(
+    "/stats",
+    summary="Get User Stats",
+    description="Get task statistics for the authenticated user"
+)
+async def get_user_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """
+    Task T008: Get user task statistics for welcome message (FR-003)
+
+    Returns pending and completed task counts for the current user.
+
+    Response (200 OK):
+        {
+            "pending": 5,
+            "completed": 10,
+            "total": 15
+        }
+    """
+    pending_statement = select(Todo).where(
+        Todo.user_id == current_user.id,
+        Todo.is_complete == False
+    )
+    completed_statement = select(Todo).where(
+        Todo.user_id == current_user.id,
+        Todo.is_complete == True
+    )
+
+    pending = len(db.exec(pending_statement).all())
+    completed = len(db.exec(completed_statement).all())
+
+    return {
+        "pending": pending,
+        "completed": completed,
+        "total": pending + completed
+    }
+
+
 @router.post(
     "",
     response_model=TodoResponse,

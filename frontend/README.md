@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Evo-TODO frontend is a Next.js 16+ application with TypeScript, providing a modern, responsive UI for task management with Better Auth authentication.
+The Evo-TODO frontend is a Next.js 16+ application with TypeScript, providing a modern, responsive UI for task management and a real-time chat interface to interact with an AI agent. It uses Better Auth for authentication.
 
 **Tech Stack:**
 - **Framework**: Next.js 16+ (App Router, Server Components)
@@ -15,6 +15,12 @@ The Evo-TODO frontend is a Next.js 16+ application with TypeScript, providing a 
 - **Icons**: Lucide React 0.562+
 - **State Management**: React Hooks (useState, useEffect, custom hooks)
 - **Notifications**: Sonner 2.0+
+
+## New Features in Phase 3
+
+- **Real-time Chat Interface**: A new page under the dashboard for real-time chat with an AI agent.
+- **`useChat` Hook**: A custom hook to manage the state of the chat, including messages and user input.
+- **Scrollable Chat Area**: A new UI component for a scrollable chat window.
 
 ## Project Structure
 
@@ -30,13 +36,16 @@ frontend/
 │   ├── dashboard/                # Dashboard route group (protected)
 │   │   ├── layout.tsx           # Dashboard layout with sidebar/navbar
 │   │   ├── page.tsx            # Dashboard home (placeholder)
-│   │   └── todos/             # Tasks page
+│   │   ├── todos/             # Tasks page
+│   │   │   └── page.tsx
+│   │   └── chat/              # Chat page
 │   │       └── page.tsx
 │   ├── (protected)/             # Protected route group (redirect)
 │   │   ├── layout.tsx           # Protected layout
 │   │   └── page.tsx            # Redirect to /dashboard/todos
 │   ├── api/
-│   │   └── auth/[...all]/route.ts  # Better Auth server handler
+│   │   ├── auth/[...all]/route.ts  # Better Auth server handler
+│   │   └── chat/[userId]/route.ts # Chat API route
 │   ├── layout.tsx               # Root layout with providers
 │   ├── page.tsx                # Landing page
 │   └── globals.css              # Global styles
@@ -68,7 +77,8 @@ frontend/
 │       ├── alert.tsx
 │       ├── button.tsx
 │       ├── input.tsx
-│       └── label.tsx
+│       ├── label.tsx
+│       └── scroll-area.tsx
 ├── lib/
 │   ├── api.ts                   # API client with JWT injection
 │   ├── auth-client.ts            # Better Auth client configuration
@@ -77,7 +87,8 @@ frontend/
 │   │   ├── useAuth.ts
 │   │   ├── useBulkSelection.ts
 │   │   ├── useTheme.ts
-│   │   └── useTodos.ts          # Main todo state management hook
+│   │   ├── useTodos.ts          # Main todo state management hook
+│   │   └── useChat.ts           # Chat state management hook
 │   ├── types/                   # TypeScript types
 │   │   ├── api.ts
 │   │   ├── auth.ts
@@ -176,6 +187,7 @@ Session active, user can access todos
 |-------|-----------|--------|-------------|
 | `/dashboard` | DashboardPage | DashboardUI | Placeholder page |
 | `/dashboard/todos` | DashboardTodosPage | DashboardUI | Main tasks page |
+| `/dashboard/chat` | ChatPage | DashboardUI | Real-time chat with AI agent |
 
 ### Route Groups
 
@@ -191,7 +203,7 @@ Session active, user can access todos
 
 **`dashboard` Group** (`app/dashboard/`)
 - Layout: DashboardUI (Sidebar + Navbar)
-- Routes: `/`, `/todos`
+- Routes: `/`, `/todos`, `/chat`
 - Requires authentication (validated in layout)
 
 ## Components Architecture
@@ -260,6 +272,13 @@ Session active, user can access todos
 - Selection count display
 - Action buttons
 
+### Chat Components
+
+#### ChatPage (`app/dashboard/chat/page.tsx`)
+- Main component for the chat interface.
+- Uses the `useChat` hook to manage state.
+- Renders the chat history and input form.
+
 ### Landing Components
 
 All landing page components use gradient backgrounds and consistent styling:
@@ -307,6 +326,21 @@ All landing page components use gradient backgrounds and consistent styling:
 - Sorts by multiple fields
 - Transforms backend snake_case to frontend camelCase
 - Updates `is_complete` → `status` mapping
+
+### useChat Hook (`lib/hooks/useChat.ts`)
+
+**Purpose**: Manages the state of the real-time chat.
+
+**Returns**:
+```typescript
+{
+  messages: ChatMessage[];
+  input: string;
+  handleInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  handleSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  isLoading: boolean;
+}
+```
 
 ### useTheme Hook (`lib/hooks/useTheme.ts`)
 
@@ -490,6 +524,7 @@ export type TodoSort = "title" | "priority" | "dueDate" | "createdAt"
 - **Input**: Text, email, password inputs
 - **Label**: Form labels
 - **Alert**: Alert display component
+- **ScrollArea**: For scrollable content areas.
 
 ### Styling Approach
 

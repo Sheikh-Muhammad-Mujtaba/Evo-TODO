@@ -1,5 +1,6 @@
 """
 Task T-202/T-221: Configuration and settings for Phase II backend
+Task T004: Structured logging configuration
 
 Phase II Constitution Compliance:
 - All configuration from environment variables (security)
@@ -7,12 +8,76 @@ Phase II Constitution Compliance:
 - EdDSA/JWKS verification (not HS256 shared secret)
 - Database URL for PostgreSQL/Neon connection
 - CORS for frontend communication
+- Structured logging (FR-010)
 """
 
 from functools import lru_cache
+import logging
+import logging.config
+import json
+from datetime import datetime
 from typing import Optional
-from pydantic import field_validator
+from pydantic import field_validator, ConfigDict
 from pydantic_settings import BaseSettings
+
+
+class StructuredFormatter(logging.Formatter):
+    """Task T004: JSON structured log formatter for production logging."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        log_entry = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+        }
+
+        # Add exception info if present
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+
+        # Add extra fields if present
+        if hasattr(record, "user_id"):
+            log_entry["user_id"] = record.user_id
+        if hasattr(record, "request_id"):
+            log_entry["request_id"] = record.request_id
+        if hasattr(record, "duration_ms"):
+            log_entry["duration_ms"] = record.duration_ms
+
+        return json.dumps(log_entry)
+
+
+def configure_logging(environment: str = "development", debug: bool = True) -> None:
+    """
+    Task T004: Configure structured logging based on environment.
+
+    - Development: Human-readable format with DEBUG level
+    - Production: JSON structured format with INFO level
+    """
+    log_level = logging.DEBUG if debug else logging.INFO
+
+    if environment == "production":
+        # Production: JSON structured logging
+        handler = logging.StreamHandler()
+        handler.setFormatter(StructuredFormatter())
+        logging.root.handlers = [handler]
+        logging.root.setLevel(log_level)
+    else:
+        # Development: Human-readable logging
+        logging.basicConfig(
+            level=log_level,
+            format="%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d | %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+
+    # Set third-party loggers to WARNING to reduce noise
+    logging.getLogger("uvicorn").setLevel(logging.INFO)
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 class Settings(BaseSettings):
@@ -38,8 +103,17 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
 
-    class Config:
-        env_file = ".env"
+    # Gemini API Configuration
+    GEMINI_API_KEY: str = ""
+    GEMINI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    MODEL_NAME: str = "gemini/gemini-pro"
+
+    # MCP Server Configuration
+    MCP_SERVER_URL: str = "http://localhost:8001"
+    # Internal secret for MCP server authentication (agent -> MCP server trust)
+    MCP_INTERNAL_SECRET: str = "mcp-internal-secret-change-in-production"
+
+    model_config = ConfigDict(env_file=".env", extra="ignore")
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -69,3 +143,6 @@ def get_settings() -> Settings:
 
 # Task T-202: Export settings
 settings = get_settings()
+
+# Task T004: Initialize structured logging
+configure_logging(settings.ENVIRONMENT, settings.DEBUG)
