@@ -1,8 +1,8 @@
-import { useSession } from './useAuth';  // Better Auth session
+import { useAuth } from './useAuth';  // Better Auth session
 import { useCallback } from 'react';
 
 export function useChat() {
-  const session = useSession();
+  const { session } = useAuth();
 
   const sendMessage = useCallback(async (message: string, conversationId?: string) => {
     if (!session) throw new Error('No session');
