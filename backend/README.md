@@ -2,42 +2,56 @@
 
 ## Overview
 
-The Evo-TODO backend is a FastAPI application that provides RESTful API endpoints for todo management with Better Auth JWT authentication.
+The Evo-TODO backend is a FastAPI application that provides RESTful API endpoints for todo management and a real-time chat feature with an AI agent. It uses Better Auth for JWT authentication.
 
 **Tech Stack:**
 - **Framework**: FastAPI 0.104+
 - **ORM**: SQLModel (Pydantic + SQLAlchemy)
 - **Database**: PostgreSQL (Neon Serverless supported)
-- **Authentication**: Better Auth (EdDSA/JWKS)
+- **Authentication**: Better Auth (EdDSA/JWKS) and JWT
 - **Language**: Python 3.11+
+
+## New Features in Phase 3
+
+- **Chatbot API**: A new real-time chat feature allowing users to interact with an AI agent.
+- **JWT Authentication**: Enhanced security with JWT-based authentication for all major endpoints.
+- **MCP Server Integration**: The chat functionality is integrated with the MCP server.
+- **Expanded Test Coverage**: New end-to-end and other tests for the MCP server.
 
 ## Project Structure
 
 ```
 backend/
 ├── app/
+│   ├── agents/
+│   │   └── chat_agent.py      # Logic for the AI chat agent
 │   ├── api/
 │   │   ├── auth.py          # DEPRECATED - Better Auth handles auth
 │   │   ├── deps.py          # FastAPI dependencies (JWT validation)
 │   │   ├── todos.py         # Todo CRUD endpoints
-│   │   └── __init__.py
+│   │   └── chat.py          # Chat API endpoints
 │   ├── core/
 │   │   ├── auth.py          # JWT verification logic
 │   │   ├── config.py        # Configuration settings
 │   │   ├── jwks_client.py   # JWKS client for JWT verification
-│   │   └── __init__.py
+│   │   └── security.py      # Security utilities, including JWT creation
 │   ├── models/
 │   │   ├── database.py      # Database connection & session
 │   │   ├── todo.py          # Todo SQLModel
 │   │   ├── user.py          # User SQLModel (maps to Better Auth)
-│   │   └── __init__.py
+│   │   └── chat.py          # Chat message SQLModel
 │   ├── schemas/
 │   │   ├── todo.py          # Todo Pydantic schemas
 │   │   ├── user.py          # User Pydantic schemas
-│   │   └── __init__.py
+│   │   └── chat.py          # Chat Pydantic schemas
 │   ├── main.py              # FastAPI app entry point
 │   └── __init__.py
-├── tests/                   # Test files
+├── mcp_server/
+│   └── server.py            # MCP server implementation
+├── tests/
+│   ├── test_mcp_server.py
+│   ├── test_mcp_server_e2e.py
+│   └── test_mcp_server_extra.py
 ├── .env                     # Environment variables (create from .env.example)
 ├── .env.example             # Example environment configuration
 ├── Dockerfile               # Docker configuration
@@ -171,6 +185,20 @@ class Todo(SQLModel, table=True):
 - Frontend can only access user's own todos
 - 404 returned for non-existent OR non-owned todos (prevents info leakage)
 
+### Chat Model (backend/app/models/chat.py)
+
+**Table**: `chat_messages`
+
+```python
+class ChatMessage(SQLModel, table=True):
+    id: UUID
+    user_id: str
+    message: str
+    response: str
+    created_at: datetime
+    updated_at: datetime
+```
+
 ## API Routes
 
 ### Health Check
@@ -277,6 +305,15 @@ class Todo(SQLModel, table=True):
 - 403: User doesn't own this todo
 - 404: Todo not found
 
+### Chat Endpoints
+
+**Base Path**: `/api/chat`
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| POST | `/` | Send a message to the chat agent | Yes |
+| GET | `/{user_id}` | Get chat history for a user | Yes |
+
 ## API Schemas
 
 ### Todo Schemas (backend/app/schemas/todo.py)
@@ -295,6 +332,11 @@ class Todo(SQLModel, table=True):
 - **UserResponse**: Output for user data
 - **TokenResponse**: Token + user data (deprecated)
 - **UserUpdate**: Input for user profile update (future use)
+
+### Chat Schemas (backend/app/schemas/chat.py)
+
+- **ChatMessageCreate**: Input for creating a new chat message.
+- **ChatMessageResponse**: Output for a single chat message.
 
 ## Database Connection
 
