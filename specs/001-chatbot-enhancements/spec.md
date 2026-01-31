@@ -13,6 +13,10 @@
 - Q: What is the expected behavior for error states other than duplicate tasks? → A: Display a generic error message to the user and log details on the backend.
 - Q: What are the requirements for observability (logging, metrics, tracing)? → A: Structured logging and basic API metrics.
 - Q: What are the requirements for reliability and availability? → A: 99.9% uptime with a documented recovery plan.
+- Q: Clarify chat history persistence behavior? → A:
+  - Frontend startup: Show welcome message only (no history).
+  - Backend agent: Must receive last 5 messages for context.
+  - Frontend session: Persist newly generated messages until hard refresh.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -48,16 +52,22 @@ As a user, I want the chatbot to display the correct task values in the welcome 
 
 ### User Story 3 - Proper Session Handling (Priority: P2)
 
-As a user, I want the application to correctly handle my session, so I don't have to log in repeatedly and my context is maintained.
+As a user, I want the application to correctly handle my session and chat context, so I don't have to log in repeatedly and the agent remembers recent context.
 
 **Why this priority**: Improves user experience by providing a seamless and persistent interaction with the application.
 
-**Independent Test**: Can be tested by logging in, closing the browser tab, reopening it, and checking if the user is still logged in.
+**Independent Test**:
+1. Login/Session: Test by logging in, closing browser tab, reopening, and verifying user remains logged in.
+2. Chat Context: Send 5 messages, send a 6th referring to the 1st. Agent should understand context.
+3. Chat UI: Reload page -> UI shows welcome message only (clean state).
 
 **Acceptance Scenarios**:
 
 1. **Given** a user is logged in, **When** the user closes and reopens the browser, **Then** the user should remain logged in.
 2. **Given** a user's session has expired, **When** the user tries to perform an action, **Then** the system should gracefully redirect them to the login page.
+3. **Given** a fresh page load, **When** the user opens the dashboard, **Then** only the welcome message is displayed (no previous history visible).
+4. **Given** an ongoing chat, **When** the user sends a message, **Then** the backend agent receives the previous 5 messages as context.
+5. **Given** an ongoing chat, **When** the user sends messages, **Then** the frontend preserves them until the page is refreshed.
 
 ---
 
@@ -74,13 +84,16 @@ As a user, I want the application to correctly handle my session, so I don't hav
 - **FR-001**: The system MUST validate for duplicate tasks using a case-insensitive, whitespace-trimmed comparison of task titles.
 - **FR-002**: The system MUST provide the user with feedback if a duplicate task is found.
 - **FR-003**: The frontend MUST display the correct and updated task values in the welcome message.
-- **FR-004**: The system MUST maintain user session state across interactions.
+- **FR-004**: The system MUST maintain user session state across interactions (auth persistence).
 - **FR-005**: The system MUST handle session expiration and re-authentication gracefully.
 - **FR-006**: The backend chatbot agent's instructions MUST be updated to include the task validation logic, and the agent is responsible for running the tool to check for duplicates.
 - **FR-007**: All chatbot tool calls (e.g., update, delete) MUST be made more robust with proper validation and error handling.
 - **FR-008**: The system MUST implement a basic rate limit (e.g., 100 requests per minute per user) for all API endpoints to prevent abuse.
 - **FR-009**: For all errors other than duplicate tasks, the system MUST display a generic error message to the user and log detailed error information on the backend.
 - **FR-010**: The system MUST implement structured logging for all backend services and basic metrics for API request/response rates and latencies.
+- **FR-011**: Backend application MUST provide the last 5 messages as context to the agent for every new request.
+- **FR-012**: Frontend application MUST preserve chat messages during the active session (until page reload).
+- **FR-013**: Frontend application MUST NOT display historical messages on initial page load (privacy/clean slate).
 
 ### Non-Functional Requirements
 

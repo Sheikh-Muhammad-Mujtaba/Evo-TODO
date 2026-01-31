@@ -7,8 +7,8 @@
 
 **Purpose**: Verify project initialization and basic structure.
 
-- [ ] T001 Verify project structure per implementation plan in `specs/001-chatbot-enhancements/plan.md`.
-- [ ] T002 Verify language and framework dependencies are installed for both `backend` and `frontend`.
+- [X] T001 Verify project structure per implementation plan in `specs/001-chatbot-enhancements/plan.md`.
+- [X] T002 Verify language and framework dependencies are installed for both `backend` and `frontend`.
 
 ---
 
@@ -16,9 +16,9 @@
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented.
 
-- [ ] T003 [P] Implement rate limiting middleware in `backend/app/core/security.py`.
-- [ ] T004 [P] Configure structured logging in `backend/app/core/config.py`.
-- [ ] T005 [P] Add basic API metrics for request/response rates and latencies.
+- [X] T003 [P] Implement rate limiting middleware in `backend/app/core/security.py`.
+- [X] T004 [P] Configure structured logging in `backend/app/core/config.py`.
+- [X] T005 [P] Add basic API metrics for request/response rates and latencies.
 
 **Checkpoint**: Foundation ready - user story implementation can now begin.
 
@@ -32,8 +32,8 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Update the `create_task` endpoint in `backend/app/api/endpoints/tasks.py` to include duplicate validation logic.
-- [ ] T007 [US1] Modify the `chat_agent` in `backend/app/agents/chat_agent.py` to handle the feedback from the duplicate validation.
+- [X] T006 [US1] Update the `create_task` endpoint in `backend/app/api/endpoints/tasks.py` to include duplicate validation logic.
+- [X] T007 [US1] Modify the `chat_agent` in `backend/app/agents/chat_agent.py` to handle the feedback from the duplicate validation.
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently.
 
@@ -47,8 +47,8 @@
 
 ### Implementation for User Story 2
 
-- [ ] T008 [US2] Implement the `get_user_stats` endpoint in `backend/app/api/endpoints/users.py`.
-- [ ] T009 [US2] Update the frontend dashboard page in `frontend/app/dashboard/page.tsx` to call the `get_user_stats` endpoint and display the correct task count in the welcome message.
+- [X] T008 [US2] Implement the `get_user_stats` endpoint in `backend/app/api/endpoints/users.py`.
+- [X] T009 [US2] Update the frontend dashboard page in `frontend/app/dashboard/page.tsx` to call the `get_user_stats` endpoint and display the correct task count in the welcome message.
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently.
 

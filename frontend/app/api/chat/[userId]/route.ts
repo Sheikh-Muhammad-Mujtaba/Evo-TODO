@@ -64,6 +64,7 @@ export async function POST(
       body: JSON.stringify({
         message,
         conversation_id,
+        user_id: userId,
       }),
     });
 

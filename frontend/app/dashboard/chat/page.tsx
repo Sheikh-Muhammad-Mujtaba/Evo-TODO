@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useSession } from '@/lib/auth-client';
+import { useSession, authClient } from '@/lib/auth-client';
 import { useTheme } from '@/lib/hooks/useTheme';
 
 interface Message {
@@ -12,20 +12,69 @@ interface Message {
   content: string;
 }
 
+interface UserStats {
+  pending: number;
+  completed: number;
+  total: number;
+}
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
   const { theme } = useTheme();
 
+  // T009: Fetch user stats from backend API for correct welcome message (FR-003)
   useEffect(() => {
-    if (session) {
-      const greeting = `Welcome back! You have ${session.user.stats?.pending ?? 0} open tasks across ${session.user.stats?.conversations ?? 0} conversations. How can I help?`;
-      setMessages([{ role: 'assistant', content: greeting }]);
-    }
+    const fetchStats = async () => {
+      if (!session) return;
+
+      try {
+        // Get JWT token for API call
+        const tokenResult = await authClient.token();
+        if (!tokenResult?.data?.token) {
+          console.error("Failed to retrieve auth token.");
+          return;
+        }
+        const token = tokenResult.data.token;
+
+        const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+        const res = await fetch(`${backendUrl}/api/todos/stats`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          credentials: 'include',
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setStats(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch user stats:', error);
+      }
+    };
+
+    fetchStats();
   }, [session]);
+
+  // T009: Show welcome message with correct stats from API
+  useEffect(() => {
+    if (session && stats !== null && !welcomeMessageShown) {
+      const greeting = stats.total === 0
+        ? `Welcome! You don't have any tasks yet. Try saying "add buy groceries" to create your first task.`
+        : `Welcome back! You have ${stats.pending} pending task${stats.pending !== 1 ? 's' : ''} and ${stats.completed} completed. How can I help?`;
+      setMessages([{ role: 'assistant', content: greeting }]);
+      setWelcomeMessageShown(true);
+    } else if (session && stats === null && !welcomeMessageShown) {
+      // Show loading state while fetching stats
+      setMessages([{ role: 'assistant', content: 'Loading your tasks...' }]);
+    }
+  }, [session, stats, welcomeMessageShown]);
 
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,6 +100,7 @@ export default function ChatPage() {
         body: JSON.stringify({
           message: input,
           conversation_id: undefined,
+          user_id: session.user.id,
         }),
       });
 

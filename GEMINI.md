@@ -96,3 +96,4 @@ See `.specify/memory/constitution.md` for quality, testing, performance, securit
 
 ## Recent Changes
 - 001-chatbot-enhancements: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
+- 002-chat-fixes: Fixed chat history disappearing and 422/401 errors by correcting state management and API request payloads.

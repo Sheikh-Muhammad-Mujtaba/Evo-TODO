@@ -89,12 +89,23 @@ async def list_tools() -> list[types.Tool]:
         ),
         types.Tool(
             name="add_task",
-            description="Adds a new task to the database.",
+            description="Adds a new task to the database. Automatically checks for duplicates using case-insensitive title matching.",
             inputSchema={
                 "type": "object",
                 "properties": {
                     "title": {"type": "string", "description": "The title of the task."},
                     "description": {"type": "string", "description": "The description of the task."}
+                },
+                "required": ["title"]
+            }
+        ),
+        types.Tool(
+            name="check_duplicate_task",
+            description="Check if a similar task already exists (case-insensitive, whitespace-trimmed). Use this before creating a task.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string", "description": "The title to check for duplicates."}
                 },
                 "required": ["title"]
             }
@@ -155,6 +166,21 @@ async def call_tool(name: str, arguments: dict, user_id: str) -> list[types.Text
             completed = len(session.exec(select(Todo).where(Todo.user_id == user_id, Todo.is_complete == True)).all())
             return create_text_response(f"Pending tasks: {pending}, Completed tasks: {completed}")
 
+    elif name == "check_duplicate_task":
+        # T006: Check for duplicate tasks (case-insensitive, whitespace-trimmed)
+        validate_required_args(arguments, ["title"], "check_duplicate_task")
+        title = arguments["title"].strip().lower()
+
+        with Session(engine) as session:
+            # Get all user's tasks and compare case-insensitively
+            todos = session.exec(select(Todo).where(Todo.user_id == user_id)).all()
+            for todo in todos:
+                if todo.title.strip().lower() == title:
+                    return create_text_response(
+                        f"DUPLICATE FOUND: A task with similar title already exists: '{todo.title}' (ID: {todo.id}, Completed: {todo.is_complete})"
+                    )
+            return create_text_response("NO DUPLICATE: No similar task found. Safe to create.")
+
     elif name == "add_task":
         validate_required_args(arguments, ["title"], "add_task")
         title = arguments["title"]
@@ -168,6 +194,16 @@ async def call_tool(name: str, arguments: dict, user_id: str) -> list[types.Text
             raise ValueError("Description must be 2000 characters or less.")
 
         with Session(engine) as session:
+            # T006: Check for duplicates before creating
+            normalized_title = title.strip().lower()
+            existing_todos = session.exec(select(Todo).where(Todo.user_id == user_id)).all()
+            for existing in existing_todos:
+                if existing.title.strip().lower() == normalized_title:
+                    return create_text_response(
+                        f"Task not created - a similar task already exists: '{existing.title}' (ID: {existing.id}). "
+                        f"Use update_task to modify it or delete_task to remove it first."
+                    )
+
             todo = Todo(user_id=user_id, title=title.strip(), description=description.strip() if description else None)
             session.add(todo)
             session.commit()
@@ -357,6 +393,10 @@ async def handle_mcp_request(request: Request):
                 # Unexpected errors: database failures, etc. (Phase 4: T024)
                 logger.error(f"Tool execution failed: {tool_name}", exc_info=True)
                 return create_error_response(-32603, "Internal server error", request_id)
+
+        elif method == "notifications/initialized":
+            logger.info("MCP client initialized.")
+            return JSONResponse({}, status_code=204)
 
         else:
             logger.warning(f"Unknown MCP method: {method}")

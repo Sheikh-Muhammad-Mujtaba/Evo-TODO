@@ -1,11 +1,13 @@
 """
 Task T-202: FastAPI application entry point
+Task T003/T005: Throttling middleware and metrics logging
 
 Phase II Backend - Full-stack todo application with:
 - Better Auth JWT validation (EdDSA/JWKS)
 - SQLModel ORM with PostgreSQL (Neon)
 - User-scoped data isolation
 - RESTful API endpoints
+- Stateless throttling and request logging
 """
 
 from contextlib import asynccontextmanager
@@ -13,10 +15,11 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.security import ThrottlingMiddleware
 from app.models.database import init_db
 from app.api.todos import router as todos_router
 from app.schemas.chat import ChatRequest
-from app.agents.chat_agent import get_agent_response, get_initialized_triage_agent
+from app.agents.chat_agent import get_agent_response, get_initialized_orchestrator_agent
 from agents import Agent
 from agents.mcp import MCPServerStreamableHttp
 from typing import Optional
@@ -64,6 +67,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Task T003/T005: Throttling and metrics middleware (stateless)
+app.add_middleware(ThrottlingMiddleware)
+
 # Task T-216: Register Todo CRUD endpoints
 app.include_router(todos_router)
 
@@ -104,11 +110,11 @@ async def chat(request: ChatRequest, current_user: User = Depends(get_current_us
         max_retry_attempts=3,  # Retry up to 3 times on failure
         retry_backoff_seconds_base=1.0,  # Exponential backoff starting at 1 second
     ) as mcp_server:
-        # Initialize triage agent with user-specific MCP connection
-        triage_agent = await get_initialized_triage_agent(mcp_server)
+        # Initialize orchestrator agent with user-specific MCP connection
+        orchestrator_agent = await get_initialized_orchestrator_agent(mcp_server)
 
         response = await get_agent_response(
-            triage_agent=triage_agent,
+            orchestrator_agent=orchestrator_agent,
             user_input=request.message,
             user_id=current_user.id,
             conversation_id=request.conversation_id,
