@@ -6,69 +6,86 @@ on:
     branches:
       - main
 
+# REQUIRED for GHCR push
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Check out code
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.13'
+      # ---------------- BACKEND ----------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
-    - name: Install backend dependencies
-      run: |
-        pip install uv
-        cd backend
-        uv sync
+      - name: Install backend dependencies
+        run: |
+          pip install uv
+          cd backend
+          uv sync
 
-    - name: Run backend tests
-      run: |
-        cd backend
-        # Add test command here, e.g., pytest
+      - name: Run backend tests
+        run: |
+          cd backend
+          # pytest
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '20'
+      # ---------------- FRONTEND ----------------
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
 
-    - name: Install frontend dependencies
-      run: |
-        cd frontend
-        npm ci
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
 
-    - name: Run frontend tests
-      run: |
-        cd frontend
-        # Add test command here, e.g., npm test
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          # npm test
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      # ---------------- DOCKER / GHCR ----------------
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Build and push backend image
-      uses: docker/build-push-action@v4
-      with:
-        context: backend
-        push: true
-        tags: ghcr.io/sheikh-muhammad-mujtaba/evo-todo/backend:latest
+      - name: Set image names
+        run: |
+          echo "BACKEND_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/evo-todo-backend" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/evo-todo-frontend" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
 
-    - name: Build and push frontend image
-      uses: docker/build-push-action@v4
-      with:
-        context: frontend
-        push: true
-        tags: ghcr.io/sheikh-muhammad-mujtaba/evo-todo/frontend:latest
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: backend
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ env.IMAGE_TAG }}
 
-    - name: Deploy to Kubernetes
-      run: |
-        echo "Deploying to Kubernetes..."
-        # This step requires configuring kubectl with cluster credentials
-        # and applying the manifests from the /k8s directory.
-        # Example:
-        # kubectl apply -f k8s/
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: frontend
+          push: true
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
+
+      # ---------------- KUBERNETES ----------------
+      - name: Deploy to Kubernetes
+        run: |
+          echo "Deploying to Kubernetes..."
+          # kubectl apply -f k8s/
