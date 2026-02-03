@@ -97,3 +97,7 @@ See `.specify/memory/constitution.md` for quality, testing, performance, securit
 ## Recent Changes
 - 001-chatbot-enhancements: Added [if applicable, e.g., PostgreSQL, CoreData, files or N/A]
 - 002-chat-fixes: Fixed chat history disappearing and 422/401 errors by correcting state management and API request payloads.
+
+## Active Technologies
+- Python 3.13 (backend), Node.js 20 (frontend) + Docker, Kubernetes, GitHub Actions (001-cloud-native-migration)
+- Kubernetes Secrets for sensitive data (e.g., database connection strings, Better Auth secrets) (001-cloud-native-migration)
