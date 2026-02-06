@@ -6,8 +6,8 @@
 
 import { authClient } from "./auth-client"
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL //|| "http://localhost:8000"
+const TODO_API_BASE_URL = process.env.NEXT_PUBLIC_TODO_API_URL
+const AGENT_API_BASE_URL = process.env.NEXT_PUBLIC_AGENT_API_URL
 
 // Request timeout in milliseconds (10 seconds)
 const REQUEST_TIMEOUT_MS = 10000
@@ -24,16 +24,8 @@ export interface ApiResponse<T = any> {
   error?: string
 }
 
-/**
- * Task T-227 + T-242: Core API call function with automatic JWT injection and error handling
- * - Retrieves JWT token from Better Auth
- * - Injects as Authorization: Bearer <token> header
- * - Handles various HTTP error responses
- * - Handles 401 (token expired) by triggering re-login
- * - Handles 403 (forbidden), 404 (not found), 500 (server error)
- * - Provides error handling for network failures
- */
 export async function apiCall<T = any>(
+  baseUrl: string, // New parameter for the base URL
   endpoint: string,
   options: ApiRequestOptions = {}
 ): Promise<ApiResponse<T>> {
@@ -116,7 +108,7 @@ export async function apiCall<T = any>(
     }
 
     // Make HTTP request with credentials to include session cookies
-    const url = `${API_BASE_URL}${endpoint}`;
+    const url = `${baseUrl}${endpoint}`;
     if (process.env.NODE_ENV === "development") {
       console.log("[API] Making fetch request:", {
         url,
@@ -261,7 +253,7 @@ export async function apiCall<T = any>(
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error"
-    console.error(`API call failed: ${endpoint}`, error)
+    console.error(`API call failed: ${baseUrl}${endpoint}`, error)
 
     // Handle specific network errors
     if (error instanceof TypeError) {
@@ -281,27 +273,56 @@ export async function apiCall<T = any>(
 }
 
 /**
- * Task T-227: GET request helper
+ * Service-specific API call wrapper for the Todo Service.
+ * Uses NEXT_PUBLIC_TODO_API_URL.
+ */
+export async function apiCallTodo<T = any>(
+  endpoint: string,
+  options: ApiRequestOptions = {}
+): Promise<ApiResponse<T>> {
+  if (!TODO_API_BASE_URL) {
+    return { ok: false, status: 500, error: "TODO_API_BASE_URL is not defined" };
+  }
+  return apiCall<T>(TODO_API_BASE_URL, endpoint, options);
+}
+
+/**
+ * Service-specific API call wrapper for the Agent Service.
+ * Uses NEXT_PUBLIC_AGENT_API_URL.
+ */
+export async function apiCallAgent<T = any>(
+  endpoint: string,
+  options: ApiRequestOptions = {}
+): Promise<ApiResponse<T>> {
+  if (!AGENT_API_BASE_URL) {
+    return { ok: false, status: 500, error: "AGENT_API_BASE_URL is not defined" };
+  }
+  return apiCall<T>(AGENT_API_BASE_URL, endpoint, options);
+}
+
+
+/**
+ * Task T-227: GET request helper for Todo Service
  * Automatically includes JWT token in Authorization header
  */
-export async function apiGet<T = any>(
+export async function apiGetTodo<T = any>(
   endpoint: string
 ): Promise<ApiResponse<T>> {
-  return apiCall<T>(endpoint, {
+  return apiCallTodo<T>(endpoint, {
     method: "GET",
     authenticated: true,
   })
 }
 
 /**
- * Task T-227: POST request helper
+ * Task T-227: POST request helper for Todo Service
  * Automatically includes JWT token in Authorization header
  */
-export async function apiPost<T = any>(
+export async function apiPostTodo<T = any>(
   endpoint: string,
   body: any
 ): Promise<ApiResponse<T>> {
-  return apiCall<T>(endpoint, {
+  return apiCallTodo<T>(endpoint, {
     method: "POST",
     body: JSON.stringify(body),
     authenticated: true,
@@ -309,14 +330,14 @@ export async function apiPost<T = any>(
 }
 
 /**
- * Task T-227: PUT request helper
+ * Task T-227: PUT request helper for Todo Service
  * Automatically includes JWT token in Authorization header
  */
-export async function apiPut<T = any>(
+export async function apiPutTodo<T = any>(
   endpoint: string,
   body: any
 ): Promise<ApiResponse<T>> {
-  return apiCall<T>(endpoint, {
+  return apiCallTodo<T>(endpoint, {
     method: "PUT",
     body: JSON.stringify(body),
     authenticated: true,
@@ -324,14 +345,14 @@ export async function apiPut<T = any>(
 }
 
 /**
- * Task T-227: PATCH request helper
+ * Task T-227: PATCH request helper for Todo Service
  * Automatically includes JWT token in Authorization header
  */
-export async function apiPatch<T = any>(
+export async function apiPatchTodo<T = any>(
   endpoint: string,
   body: any
 ): Promise<ApiResponse<T>> {
-  return apiCall<T>(endpoint, {
+  return apiCallTodo<T>(endpoint, {
     method: "PATCH",
     body: JSON.stringify(body),
     authenticated: true,
@@ -339,26 +360,110 @@ export async function apiPatch<T = any>(
 }
 
 /**
- * Task T-227: DELETE request helper
+ * Task T-227: DELETE request helper for Todo Service
  * Automatically includes JWT token in Authorization header
  */
-export async function apiDelete<T = any>(
+export async function apiDeleteTodo<T = any>(
   endpoint: string
 ): Promise<ApiResponse<T>> {
-  return apiCall<T>(endpoint, {
+  return apiCallTodo<T>(endpoint, {
     method: "DELETE",
     authenticated: true,
   })
 }
 
 /**
- * Task T-227: Unauthenticated GET (for public endpoints)
+ * Task T-227: Unauthenticated GET for Todo Service (for public endpoints)
  * Does NOT include JWT token
  */
-export async function apiGetPublic<T = any>(
+export async function apiGetPublicTodo<T = any>(
   endpoint: string
 ): Promise<ApiResponse<T>> {
-  return apiCall<T>(endpoint, {
+  return apiCallTodo<T>(endpoint, {
+    method: "GET",
+    authenticated: false,
+  })
+}
+
+/**
+ * Task T-227: GET request helper for Agent Service
+ * Automatically includes JWT token in Authorization header
+ */
+export async function apiGetAgent<T = any>(
+  endpoint: string
+): Promise<ApiResponse<T>> {
+  return apiCallAgent<T>(endpoint, {
+    method: "GET",
+    authenticated: true,
+  })
+}
+
+/**
+ * Task T-227: POST request helper for Agent Service
+ * Automatically includes JWT token in Authorization header
+ */
+export async function apiPostAgent<T = any>(
+  endpoint: string,
+  body: any
+): Promise<ApiResponse<T>> {
+  return apiCallAgent<T>(endpoint, {
+    method: "POST",
+    body: JSON.stringify(body),
+    authenticated: true,
+  })
+}
+
+/**
+ * Task T-227: PUT request helper for Agent Service
+ * Automatically includes JWT token in Authorization header
+ */
+export async function apiPutAgent<T = any>(
+  endpoint: string,
+  body: any
+): Promise<ApiResponse<T>> {
+  return apiCallAgent<T>(endpoint, {
+    method: "PUT",
+    body: JSON.stringify(body),
+    authenticated: true,
+  })
+}
+
+/**
+ * Task T-227: PATCH request helper for Agent Service
+ * Automatically includes JWT token in Authorization header
+ */
+export async function apiPatchAgent<T = any>(
+  endpoint: string,
+  body: any
+): Promise<ApiResponse<T>> {
+  return apiCallAgent<T>(endpoint, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+    authenticated: true,
+  })
+}
+
+/**
+ * Task T-227: DELETE request helper for Agent Service
+ * Automatically includes JWT token in Authorization header
+ */
+export async function apiDeleteAgent<T = any>(
+  endpoint: string
+): Promise<ApiResponse<T>> {
+  return apiCallAgent<T>(endpoint, {
+    method: "DELETE",
+    authenticated: true,
+  })
+}
+
+/**
+ * Task T-227: Unauthenticated GET for Agent Service (for public endpoints)
+ * Does NOT include JWT token
+ */
+export async function apiGetPublicAgent<T = any>(
+  endpoint: string
+): Promise<ApiResponse<T>> {
+  return apiCallAgent<T>(endpoint, {
     method: "GET",
     authenticated: false,
   })
@@ -374,22 +479,30 @@ export async function verifyApiConnectivity(): Promise<{
   error?: string
 }> {
   try {
-    const response = await apiCall("/health", { authenticated: false })
+    const responseTodo = await apiGetPublicTodo("/health")
+    const responseAgent = await apiGetPublicAgent("/health")
 
-    if (response.ok) {
-      // Try authenticated call to verify JWT injection
-      const authResponse = await apiCall("/api/todos", { authenticated: true })
+    if (responseTodo.ok && responseAgent.ok) {
+      // Try authenticated call to verify JWT injection with Todo service
+      const authResponseTodo = await apiGetTodo("/api/todos")
+      // Try authenticated call to verify JWT injection with Agent service
+      const authResponseAgent = await apiGetAgent("/api/chat")
+
 
       return {
         connected: true,
-        tokenIncluded: authResponse.status !== 401,
+        tokenIncluded: authResponseTodo.status !== 401 && authResponseAgent.status !== 401,
         error: undefined,
       }
     } else {
+      let errorMessages = []
+      if (!responseTodo.ok) errorMessages.push(`Todo Service: ${responseTodo.error}`);
+      if (!responseAgent.ok) errorMessages.push(`Agent Service: ${responseAgent.error}`);
+
       return {
         connected: false,
         tokenIncluded: false,
-        error: response.error,
+        error: errorMessages.join("; "),
       }
     }
   } catch (error) {
@@ -400,3 +513,4 @@ export async function verifyApiConnectivity(): Promise<{
     }
   }
 }
+

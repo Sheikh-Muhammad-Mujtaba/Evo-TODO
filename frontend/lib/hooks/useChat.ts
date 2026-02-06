@@ -1,5 +1,6 @@
 import { useSession } from './useAuth';  // Better Auth session
 import { useCallback } from 'react';
+import { apiPostAgent } from "../api";
 
 export function useChat() {
   const session = useSession();
@@ -7,17 +8,13 @@ export function useChat() {
   const sendMessage = useCallback(async (message: string, conversationId?: string) => {
     if (!session) throw new Error('No session');
 
-    const res = await fetch(`/api/chat/${session.user.id}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.token}`,
-      },
-      body: JSON.stringify({ message, conversation_id: conversationId }),
+    const response = await apiPostAgent(`/api/chat/${session.user.id}`, {
+      message,
+      conversation_id: conversationId,
     });
 
-    if (!res.ok) throw new Error('Chat failed');
-    return res.json();
+    if (!response.ok) throw new Error(response.error || 'Chat failed');
+    return response.data;
   }, [session]);
 
   return { sendMessage };

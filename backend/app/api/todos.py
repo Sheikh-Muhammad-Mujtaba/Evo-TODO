@@ -147,6 +147,54 @@ async def get_user_stats(
     }
 
 
+@router.get(
+    "/check_duplicate",
+    summary="Check Duplicate Task",
+    description="Check if a task with a similar title already exists for the authenticated user."
+)
+async def check_duplicate_task(
+    title: str = Query(..., min_length=1, max_length=500, description="The title to check for duplicates."),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> dict:
+    """
+    Checks if a task with a similar title (case-insensitive, whitespace-trimmed) already exists
+    for the current authenticated user.
+
+    Query Parameters:
+    - title: The title to check for.
+
+    Response (200 OK):
+        {
+            "is_duplicate": true,
+            "existing_id": "uuid",
+            "existing_title": "Existing Task Title",
+            "is_complete": false
+        }
+        or
+        {
+            "is_duplicate": false
+        }
+    """
+    normalized_title = title.strip().lower()
+
+    statement = select(Todo).where(
+        Todo.user_id == current_user.id
+    )
+    todos = db.exec(statement).all()
+
+    for todo in todos:
+        if todo.title.strip().lower() == normalized_title:
+            return {
+                "is_duplicate": True,
+                "existing_id": str(todo.id),
+                "existing_title": todo.title,
+                "is_complete": todo.is_complete
+            }
+    
+    return {"is_duplicate": False}
+
+
 @router.post(
     "",
     response_model=TodoResponse,
@@ -467,7 +515,7 @@ async def toggle_todo(
 
 @router.delete(
     "/{todo_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
     summary="Delete Todo",
     description="Delete a todo permanently"
 )
@@ -475,7 +523,7 @@ async def delete_todo(
     todo_id: UUID,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
-) -> None:
+) -> dict:
     """
     Task T-216: Delete a todo (DELETE /api/todos/{todo_id})
 
@@ -524,4 +572,4 @@ async def delete_todo(
     db.commit()
 
     # Return None for 204 No Content response
-    return None
+    return {"message": "Todo deleted successfully"}

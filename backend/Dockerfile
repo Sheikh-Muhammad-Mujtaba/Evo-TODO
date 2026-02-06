@@ -1,45 +1,31 @@
-# T-401: Refactor Dockerfiles into multi-stage production builds.
-
-# ---- Builder Stage ----
-FROM python:3.13 as builder
+# Stage 1: Builder
+FROM python:3.11-slim-buster as builder
 
 WORKDIR /app
 
-# Install uv
+# Install uv (or pip, depending on preference)
 RUN pip install uv
 
-# Copy dependency files
-COPY pyproject.toml uv.lock ./
+# Copy only the pyproject.toml and uv.lock to leverage caching
+COPY ../pyproject.toml ../uv.lock ./
 
-# Install dependencies into a virtual environment
-RUN uv venv && uv sync --no-cache
+# Install dependencies using uv
+RUN uv sync --system --no-setup-py
 
-# ---- Final Stage ----
-FROM python:3.13-slim
+# Stage 2: Runner
+FROM python:3.11-slim-buster as runner
 
 WORKDIR /app
 
-# Copy virtual environment from builder stage
-COPY --from=builder /app/.venv /.venv
+# Copy installed dependencies from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
 
-# Set path to use venv
-ENV PATH="/app/.venv/bin:$PATH"
+# Copy the shared app directory
+COPY ../app/ ./app/
 
-# Install system dependencies for runtime
-RUN apt-get update && apt-get install -y \
-    curl \
-    postgresql-client \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy application code
-COPY . .
-
-# Expose port 8000
+# Expose the port FastAPI runs on
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Start FastAPI server
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the FastAPI application using Gunicorn with Uvicorn workers
+CMD ["gunicorn", "app.main:app", "--workers", "4", "--worker-class", "uvicorn.workers.UvicornWorker", "--bind", "0.0.0.0:8000"]

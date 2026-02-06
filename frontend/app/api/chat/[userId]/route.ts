@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { headers } from 'next/headers';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+const AGENT_API_URL = process.env.NEXT_PUBLIC_AGENT_API_URL || 'http://localhost:8002';
 
 export async function POST(
   req: NextRequest,
@@ -55,7 +55,7 @@ export async function POST(
     }
 
     // Forward the request to the Python backend with the JWT token
-    const backendRes = await fetch(`${BACKEND_URL}/api/chat`, {
+    const backendRes = await fetch(`${AGENT_API_URL}/api/chat/${userId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,7 +64,7 @@ export async function POST(
       body: JSON.stringify({
         message,
         conversation_id,
-        user_id: userId,
+        user_id: userId, // Add user_id back to the body
       }),
     });
 

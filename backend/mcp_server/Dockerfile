@@ -9,7 +9,7 @@ WORKDIR /app
 RUN pip install uv
 
 # Copy dependency files
-COPY pyproject.toml uv.lock ./
+COPY ../pyproject.toml ../uv.lock ./
 
 # Install dependencies into a virtual environment
 RUN uv venv && uv sync --no-cache
@@ -26,13 +26,11 @@ COPY --from=builder /app/.venv /.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy only the necessary code
-COPY app/core/ app/core/
-COPY app/models/ app/models/
-COPY mcp/ mcp/
+COPY ../app/ ./app/
 COPY mcp_server/ mcp_server/
 
-# Expose port 8001
-EXPOSE 8001
+# Expose port 8000 (standard for uvicorn)
+EXPOSE 8000
 
-# Start MCP server
-CMD ["python", "mcp_server/server.py"]
+# Start MCP server using uvicorn
+CMD ["uvicorn", "mcp_server.server:mcp_host_app", "--host", "0.0.0.0", "--port", "8000"]

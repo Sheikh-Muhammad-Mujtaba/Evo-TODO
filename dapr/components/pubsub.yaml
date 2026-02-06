@@ -1,0 +1,16 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: localhost:6379 # Or the name of your Redis service in docker-compose
+  - name: redisPassword
+    secretKeyRef:
+      name: redis-password
+      key: redis_password
+auth:
+  secretStore: kubernetes # Assuming Kubernetes secrets for production, or local for development

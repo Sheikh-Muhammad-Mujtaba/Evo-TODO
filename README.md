@@ -418,3 +418,24 @@ MIT
 
 - Claude Haiku 4.5 (AI Assistant)
 - Sheikh Muhammad Mujtaba (Project Owner)
+
+
+
+todo app
+===========
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload 
+
+
+agent
+==============
+uvicorn app.agent_main:app --host 0.0.0.0 --port 8002 --reload
+
+
+
+mcp
+=============
+uvicorn mcp_server.server:mcp_host_app --host 0.0.0.0 --port 8001
+
+
+create one task name it devobs learning add decription for the basics that I should learn
+
