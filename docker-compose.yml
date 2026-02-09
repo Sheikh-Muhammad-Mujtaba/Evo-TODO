@@ -13,7 +13,7 @@ services:
     container_name: dapr_placement
     ports:
       - "50000:50000"
-    command: ["./placement"]
+    command: [ "./placement" ]
     networks:
       - evo-todo-network
 
@@ -48,7 +48,7 @@ services:
   daprd-todo:
     image: daprio/daprd:latest
     container_name: daprd_todo
-    command: ["./daprd", "-app-id", "todo-service", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components"]
+    command: [ "./daprd", "-app-id", "todo-service", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components" ]
     volumes:
       - ./dapr/components:/components
     depends_on:
@@ -58,7 +58,7 @@ services:
         condition: service_started
     network_mode: service:todo-service # Dapr sidecar shares network with app
     healthcheck:
-      test: ["CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1"]
+      test: [ "CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -85,7 +85,8 @@ services:
     ports:
       - "8002:8000"
     depends_on:
-      - dapr-placement
+      dapr-placement:
+        condition: service_started
       mcp-server:
         condition: service_healthy
     networks:
@@ -95,7 +96,7 @@ services:
   daprd-agent:
     image: daprio/daprd:latest
     container_name: daprd_agent
-    command: ["./daprd", "-app-id", "agent-service", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components"]
+    command: [ "./daprd", "-app-id", "agent-service", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components" ]
     volumes:
       - ./dapr/components:/components
     depends_on:
@@ -105,7 +106,7 @@ services:
         condition: service_started
     network_mode: service:agent-service # Dapr sidecar shares network with app
     healthcheck:
-      test: ["CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1"]
+      test: [ "CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -135,7 +136,7 @@ services:
     networks:
       - evo-todo-network
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1"]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -145,7 +146,7 @@ services:
   daprd-mcp:
     image: daprio/daprd:latest
     container_name: daprd_mcp
-    command: ["./daprd", "-app-id", "mcp-server", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components"]
+    command: [ "./daprd", "-app-id", "mcp-server", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components" ]
     volumes:
       - ./dapr/components:/components
     depends_on:
@@ -155,7 +156,7 @@ services:
         condition: service_started
     network_mode: service:mcp-server # Dapr sidecar shares network with app
     healthcheck:
-      test: ["CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1"]
+      test: [ "CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -183,12 +184,12 @@ services:
     networks:
       - evo-todo-network
     command: npm run dev
-  
+
   # Dapr sidecar for Frontend (optional, for direct Dapr invocation from frontend)
   daprd-frontend:
     image: daprio/daprd:latest
     container_name: daprd_frontend
-    command: ["./daprd", "-app-id", "frontend", "-app-port", "3000", "-placement-host", "dapr-placement:50000", "-components-path", "/components"]
+    command: [ "./daprd", "-app-id", "frontend", "-app-port", "3000", "-placement-host", "dapr-placement:50000", "-components-path", "/components" ]
     volumes:
       - ./dapr/components:/components
     depends_on:
@@ -198,11 +199,10 @@ services:
         condition: service_started
     network_mode: service:frontend # Dapr sidecar shares network with app
     healthcheck:
-      test: ["CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1"]
+      test: [ "CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
-
 
 volumes: {}
 
