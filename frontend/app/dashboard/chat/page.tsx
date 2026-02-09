@@ -24,7 +24,6 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
   const { theme } = useTheme();
@@ -100,7 +99,7 @@ export default function ChatPage() {
         credentials: 'include', // Ensure cookies are sent
         body: JSON.stringify({
           message: input,
-          conversation_id: conversationId,
+          conversation_id: undefined,
           user_id: session.user.id,
         }),
       });
@@ -110,15 +109,12 @@ export default function ChatPage() {
       const { response, conversation_id: _conversationId } = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
       // Update session conversationId if new
-      if (conversation_id) {
-        setConversationId(conversation_id);
-      }
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, something went wrong. Try again.' }]);
     } finally {
       setIsLoading(false);
     }
-  }, [input, isLoading, session, conversationId]);
+  }, [input, isLoading, session]);
 
   return (
     <div className={`flex flex-col h-screen ${theme === 'dark' ? 'bg-gray-900' : 'bg-white'}`}>
