@@ -1,0 +1,28 @@
+# ConfigMap for application configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: evo-todo-config
+  namespace: evo-todo
+data:
+  # Application configuration
+  ENVIRONMENT: "production"
+  DEBUG: "False"
+
+  # JWT configuration
+  JWT_ALGORITHM: "EdDSA"
+  JWT_EXPIRATION_HOURS: "168"
+
+  # CORS configuration
+  CORS_ORIGINS: "http://localhost:*"
+
+  # Dapr configuration
+  DAPR_HTTP_PORT: "3500"
+  DAPR_GRPC_PORT: "50001"
+
+  # MCP Configuration
+  MCP_SERVER_URL: "http://mcp-server-service:8000"
+
+  # Auth Configuration (for local dev)
+  BETTER_AUTH_URL: "http://localhost:3000"
+  NEXT_PUBLIC_AUTH_URL: "http://localhost:3000"

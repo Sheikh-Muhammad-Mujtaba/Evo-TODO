@@ -25,20 +25,27 @@ spec:
         dapr.io/app-id: "todo-service"
         dapr.io/app-port: "8000"
         dapr.io/config: "appconfig"
+        dapr.io/log-level: "info"
+        dapr.io/enable-metrics: "true"
+        dapr.io/metrics-port: "9090"
     spec:
       containers:
       - name: todo-service
         image: evo-todo/todo-service:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: IfNotPresent  # Use Always for production with image registry
         ports:
         - containerPort: 8000
           name: http
           protocol: TCP
+
+        # Environment variables from ConfigMap and Secrets
         envFrom:
         - configMapRef:
             name: evo-todo-config
         - secretRef:
             name: evo-todo-secrets
+
+        # Resource requests and limits (REQUIRED for HPA)
         resources:
           requests:
             cpu: 100m
@@ -46,16 +53,26 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+
+        # Liveness probe
         livenessProbe:
           httpGet:
             path: /health
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # Readiness probe
         readinessProbe:
           httpGet:
             path: /health
             port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
 
 ---
 # Agent Service Deployment
@@ -67,7 +84,7 @@ metadata:
   labels:
     app: agent-service
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: agent-service
@@ -76,10 +93,14 @@ spec:
       labels:
         app: agent-service
       annotations:
+        # Dapr sidecar injection
         dapr.io/enabled: "true"
         dapr.io/app-id: "agent-service"
         dapr.io/app-port: "8000"
         dapr.io/config: "appconfig"
+        dapr.io/log-level: "info"
+        dapr.io/enable-metrics: "true"
+        dapr.io/metrics-port: "9090"
     spec:
       containers:
       - name: agent-service
@@ -89,18 +110,38 @@ spec:
         - containerPort: 8000
           name: http
           protocol: TCP
+
         envFrom:
         - configMapRef:
             name: evo-todo-config
         - secretRef:
             name: evo-todo-secrets
+
         resources:
           requests:
             cpu: 100m
-            memory: 128Mi
+            memory: 256Mi
           limits:
-            cpu: 500m
-            memory: 512Mi
+            cpu: 1000m
+            memory: 1Gi
+
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
 
 ---
 # MCP Server Deployment
@@ -112,7 +153,7 @@ metadata:
   labels:
     app: mcp-server
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: mcp-server
@@ -121,10 +162,14 @@ spec:
       labels:
         app: mcp-server
       annotations:
+        # Dapr sidecar injection
         dapr.io/enabled: "true"
         dapr.io/app-id: "mcp-server"
         dapr.io/app-port: "8000"
         dapr.io/config: "appconfig"
+        dapr.io/log-level: "info"
+        dapr.io/enable-metrics: "true"
+        dapr.io/metrics-port: "9090"
     spec:
       containers:
       - name: mcp-server
@@ -134,18 +179,38 @@ spec:
         - containerPort: 8000
           name: http
           protocol: TCP
+
         envFrom:
         - configMapRef:
             name: evo-todo-config
         - secretRef:
             name: evo-todo-secrets
+
         resources:
           requests:
-            cpu: 50m
-            memory: 64Mi
+            cpu: 100m
+            memory: 128Mi
           limits:
-            cpu: 250m
-            memory: 256Mi
+            cpu: 500m
+            memory: 512Mi
+
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
 
 ---
 # Frontend Deployment
@@ -166,10 +231,12 @@ spec:
       labels:
         app: frontend
       annotations:
+        # Dapr sidecar injection (optional for frontend)
         dapr.io/enabled: "true"
         dapr.io/app-id: "frontend"
         dapr.io/app-port: "3000"
         dapr.io/config: "appconfig"
+        dapr.io/log-level: "info"
     spec:
       containers:
       - name: frontend
@@ -179,16 +246,13 @@ spec:
         - containerPort: 3000
           name: http
           protocol: TCP
+
         env:
         - name: NEXT_PUBLIC_API_URL
-          value: "/api"
+          value: "http://todo-service-service:8000"
         - name: NEXT_PUBLIC_DAPR_HTTP_PORT
           value: "3500"
-        envFrom:
-        - configMapRef:
-            name: evo-todo-config
-        - secretRef:
-            name: evo-todo-secrets
+
         resources:
           requests:
             cpu: 100m
@@ -196,3 +260,21 @@ spec:
           limits:
             cpu: 500m
             memory: 512Mi
+
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3

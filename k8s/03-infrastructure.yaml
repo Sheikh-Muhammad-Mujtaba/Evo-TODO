@@ -1,0 +1,126 @@
+# Optional Infrastructure for Dapr Components
+# Deploy Redis and Zipkin if needed for pub/sub and tracing
+
+---
+# Redis Deployment (for Dapr pub/sub)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: evo-todo
+  labels:
+    app: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        livenessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 6379
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: evo-todo
+  labels:
+    app: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+  type: ClusterIP
+
+---
+# Redis Secret (for Dapr component)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: redis
+  namespace: evo-todo
+type: Opaque
+stringData:
+  redis-password: ""  # No password for development
+
+---
+# Zipkin Deployment (for Dapr tracing - optional)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zipkin
+  namespace: evo-todo
+  labels:
+    app: zipkin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      labels:
+        app: zipkin
+    spec:
+      containers:
+      - name: zipkin
+        image: openzipkin/zipkin:latest
+        ports:
+        - containerPort: 9411
+        resources:
+          requests:
+            cpu: 50m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        env:
+        - name: STORAGE_TYPE
+          value: "mem"  # In-memory storage for development
+
+---
+# Zipkin Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  namespace: evo-todo
+  labels:
+    app: zipkin
+spec:
+  selector:
+    app: zipkin
+  ports:
+    - protocol: TCP
+      port: 9411
+      targetPort: 9411
+  type: ClusterIP

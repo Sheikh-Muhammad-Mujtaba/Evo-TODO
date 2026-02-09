@@ -44,7 +44,7 @@ tests:
 
 #### Current Implementation (backend/app/core/auth.py:33)
 ```python
-JWT_ALGORITHM: str = "HS256"  # Symmetric signing
+JWT_ALGORITHM: str = "EdDSA"  # Symmetric signing
 ```
 
 #### Official Better Auth Specification
@@ -61,7 +61,7 @@ jwt({
 ```
 
 **Analysis**:
-- Current: Uses **HS256 (HMAC SHA-256)** - symmetric algorithm
+- Current: Uses **EdDSA (Ed25519)** - symmetric algorithm
 - Official: Uses **EdDSA (Ed25519)** - asymmetric algorithm
 - Impact: Current implementation cannot validate tokens from official Better Auth JWT plugin
 - Severity: CRITICAL

@@ -266,7 +266,7 @@ User Browser
 ```env
 DATABASE_URL=postgresql://evo_todo_user:evo_todo_password@localhost:5432/evo_todo
 JWT_SECRET_KEY=your-256-bit-secret-key
-JWT_ALGORITHM=HS256
+JWT_ALGORITHM=EdDSA
 JWT_EXPIRATION_HOURS=168
 CORS_ORIGINS=http://localhost:3000
 ENVIRONMENT=development
@@ -423,7 +423,7 @@ MIT
 
 todo app
 ===========
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload 
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 
 agent
@@ -434,8 +434,10 @@ uvicorn app.agent_main:app --host 0.0.0.0 --port 8002 --reload
 
 mcp
 =============
-uvicorn mcp_server.server:mcp_host_app --host 0.0.0.0 --port 8001
+uvicorn mcp_server.server:app --host 0.0.0.0 --port 8003 --reload 
 
+
+source .venv/bin/activate
 
 create one task name it devobs learning add decription for the basics that I should learn
 

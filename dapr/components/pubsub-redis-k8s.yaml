@@ -1,0 +1,22 @@
+# Redis Pub/Sub Component for Kubernetes
+# For production: deploy Redis separately or use managed Redis service
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+  namespace: evo-todo
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: redis.evo-todo.svc.cluster.local:6379
+  - name: redisPassword
+    value: ""  # No password for development
+  - name: enableTLS
+    value: "false"
+scopes:
+- todo-service
+- agent-service
+- mcp-server
+

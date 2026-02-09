@@ -26,10 +26,16 @@ async def chat_endpoint(user_id: str, request_data: ChatRequest, http_request: R
     token = authorization.split(" ")[1]
 
     # Create MCP connection with per-request headers (updated SDK pattern)
+    # CRITICAL: Use the unified /mcp endpoint for Streamable HTTP transport
+    # Do NOT append /sse - the single endpoint handles both GET/SSE stream and POST messages
+    # In Docker: http://mcp-server:8000/mcp
+    # Locally: http://localhost:8003/mcp
+    mcp_url = f"{settings.MCP_SERVER_URL}/mcp"
+
     async with MCPServerStreamableHttp(
         name="Todo MCP Server Client",
         params={
-            "url": f"{settings.MCP_SERVER_URL}/mcp",
+            "url": mcp_url,
             "headers": {
                 "X-User-ID": user_id,
                 "X-Internal-Secret": settings.MCP_INTERNAL_SECRET,
@@ -45,6 +51,7 @@ async def chat_endpoint(user_id: str, request_data: ChatRequest, http_request: R
                 request_data.message,
                 user_id,
                 conversation_id,
+                token,  # Pass token to agent
             )
             return {
                 "response": assistant_response,

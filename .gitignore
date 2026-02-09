@@ -65,3 +65,4 @@ vercel.json
 .next/
 node_modules/
 .venv/
+secrets.yaml

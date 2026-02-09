@@ -572,7 +572,7 @@ DATABASE_URL=postgresql://evo_todo_user:evo_todo_password@localhost:5432/evo_tod
 
 # JWT
 JWT_SECRET_KEY=<256-bit-secret-key-generated-via-openssl>
-JWT_ALGORITHM=HS256
+JWT_ALGORITHM=EdDSA
 JWT_EXPIRATION_HOURS=168
 
 # CORS

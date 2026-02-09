@@ -390,7 +390,7 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 ```env
 DATABASE_URL=postgresql://user:password@localhost:5432/evo_todo
 JWT_SECRET_KEY=your-256-bit-secret
-JWT_ALGORITHM=HS256
+JWT_ALGORITHM=EdDSA
 JWT_EXPIRATION_HOURS=168
 CORS_ORIGINS=http://localhost:3000
 ENVIRONMENT=development

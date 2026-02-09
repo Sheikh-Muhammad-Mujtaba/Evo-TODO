@@ -1,0 +1,8 @@
+# Namespace for Evo-TODO application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: evo-todo
+  labels:
+    name: evo-todo
+    istio-injection: disabled  # Using Dapr instead of Istio
