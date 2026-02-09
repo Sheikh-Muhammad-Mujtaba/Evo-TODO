@@ -62,3 +62,4 @@ error.txt
 prompt.txt
 .vercel
 vercel.json
+secrets.yaml
