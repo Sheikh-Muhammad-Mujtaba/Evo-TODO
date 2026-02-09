@@ -21,6 +21,14 @@
 - **Tool Isolation**: Inject user_id from JWT to all tools
 - **UI Consistency**: Shadcn/UI, App Shell, Light/Dark mode
 
+## Operational Mandates
+
+- **Sensitive Files**: NEVER delete or modify `.env` files. Always ask the user to handle such sensitive files manually.
+- **Skill Management**: Use skills properly and manage them smartly. Adhere to their specific instructions, and leverage them for efficient and accurate task completion.
+- **Code Quality**: Keep code clean and working. Prioritize refactoring over rewriting, ensure existing logic functions correctly after structural changes, and verify functionality.
+- **Intent Over Literal**: Prioritize user intent over literal task execution when a conflict arises (e.g., if a task leads to destructive behavior not intended by the user).
+- **Confirm Critical Actions**: Always confirm critical actions before execution, especially those that modify configuration or delete files.
+
 ## Development Guidelines
 1. **Authoritative Sources**: MCP (Context7, Better Auth); CLI scripts first
 2. **Execution**: CLI > manual files

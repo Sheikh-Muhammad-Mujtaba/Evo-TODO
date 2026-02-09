@@ -1,37 +1,74 @@
-# T-402: Create Kubernetes manifests for frontend and backend deployments.
+# Updated Kubernetes Services (ClusterIP + LoadBalancer)
+
+---
+# Todo Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: backend-service
+  name: todo-service
+  namespace: evo-todo
+  labels:
+    app: todo-service
 spec:
   selector:
-    app: backend
+    app: todo-service
   ports:
     - protocol: TCP
       port: 8000
       targetPort: 8000
+  type: ClusterIP
+
 ---
+# Agent Service
 apiVersion: v1
 kind: Service
 metadata:
-  name: frontend-service
+  name: agent-service
+  namespace: evo-todo
+  labels:
+    app: agent-service
 spec:
   selector:
-    app: frontend
-  type: LoadBalancer
+    app: agent-service
   ports:
     - protocol: TCP
-      port: 80
-      targetPort: 3000
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+
 ---
+# MCP Server Service
 apiVersion: v1
 kind: Service
 metadata:
   name: mcp-server-service
+  namespace: evo-todo
+  labels:
+    app: mcp-server
 spec:
   selector:
     app: mcp-server
   ports:
     - protocol: TCP
-      port: 8001
-      targetPort: 8001
+      port: 8000
+      targetPort: 8000
+  type: ClusterIP
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: evo-todo
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: frontend
+  # Use LoadBalancer for external access (Minikube tunnel requires this)
+  type: LoadBalancer
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

@@ -1,0 +1,77 @@
+# Kubernetes Services for all microservices
+
+---
+# Todo Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: todo-service-service
+  namespace: evo-todo
+  labels:
+    app: todo-service
+spec:
+  selector:
+    app: todo-service
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+      name: http
+  type: ClusterIP
+
+---
+# Agent Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-service-service
+  namespace: evo-todo
+  labels:
+    app: agent-service
+spec:
+  selector:
+    app: agent-service
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+      name: http
+  type: ClusterIP
+
+---
+# MCP Server Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp-server-service
+  namespace: evo-todo
+  labels:
+    app: mcp-server
+spec:
+  selector:
+    app: mcp-server
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+      name: http
+  type: ClusterIP
+
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: evo-todo
+  labels:
+    app: frontend
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+      name: http
+  type: LoadBalancer  # For Minikube: use NodePort, for cloud: LoadBalancer

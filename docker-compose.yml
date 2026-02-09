@@ -1,68 +1,183 @@
-# Task T-203: Docker Compose for Phase II monorepo
-# Services: PostgreSQL (data), FastAPI (backend), Next.js (frontend)
+# Task T-007: Docker Compose for Microservices & Dapr Integration
+# Services: PostgreSQL (data), Todo Service, Agent Service, MCP Server, Dapr Sidecars, Frontend
 
 version: '3.8'
 
 services:
-  # PostgreSQL database
-  postgres:
-    image: postgres:15-alpine
-    container_name: evo_todo_db
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-evo_todo_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evo_todo_password}
-      POSTGRES_DB: ${POSTGRES_DB:-evo_todo}
+  # Note: Using NeonDB (external managed PostgreSQL)
+  # No local PostgreSQL container needed
+
+  # Dapr Placement Service
+  dapr-placement:
+    image: daprio/dapr:latest
+    container_name: dapr_placement
     ports:
-      - "5432:5432"
+      - "50000:50000"
+    command: [ "./placement" ]
+    networks:
+      - evo-todo-network
+
+  # Todo Service (FastAPI)
+  todo-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.todo-service
+    container_name: todo_service
+    environment:
+      # Database - NeonDB (external managed PostgreSQL)
+      DATABASE_URL: ${DATABASE_URL}
+      # JWT
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-256-bit-secret-key}
+      JWT_ALGORITHM: EdDSA
+      JWT_EXPIRATION_HOURS: 168
+      # CORS
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: "True"
+      # Dapr
+      DAPR_HTTP_PORT: 3500
+    ports:
+      - "8001:8000"
+    depends_on:
+      - dapr-placement
+    networks:
+      - evo-todo-network
+
+  # Dapr sidecar for Todo Service
+  daprd-todo:
+    image: daprio/daprd:latest
+    container_name: daprd_todo
+    command: [ "./daprd", "-app-id", "todo-service", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components" ]
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./dapr/components:/components
+    depends_on:
+      todo-service:
+        condition: service_started
+      dapr-placement:
+        condition: service_started
+    network_mode: service:todo-service # Dapr sidecar shares network with app
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-evo_todo_user} -d ${POSTGRES_DB:-evo_todo}"]
+      test: [ "CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - evo-todo-network
 
-  # FastAPI backend (Task T-202)
-  backend:
+  # Agent Service (FastAPI)
+  agent-service:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-    container_name: evo_todo_backend
+      dockerfile: Dockerfile.agent-service
+    container_name: agent_service
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-evo_todo_user}:${POSTGRES_PASSWORD:-evo_todo_password}@postgres:5432/${POSTGRES_DB:-evo_todo}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-your-256-bit-secret-key}
-      JWT_ALGORITHM: HS256
-      JWT_EXPIRATION_HOURS: 168
-      CORS_ORIGINS: http://localhost:3000
+      # Database - NeonDB (external managed PostgreSQL)
+      DATABASE_URL: ${DATABASE_URL}
+      # AI API
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      # MCP
+      MCP_SERVER_URL: http://mcp-server:8000
+      MCP_INTERNAL_SECRET: ${MCP_INTERNAL_SECRET:-mcp-internal-secret-change-in-production}
+      # Environment
       ENVIRONMENT: development
       DEBUG: "True"
+      # Dapr
+      DAPR_HTTP_PORT: 3500
     ports:
-      - "8000:8000"
+      - "8002:8000"
     depends_on:
-      postgres:
+      dapr-placement:
+        condition: service_started
+      mcp-server:
         condition: service_healthy
-    volumes:
-      - ./backend:/app
-      - /app/.venv
     networks:
       - evo-todo-network
-    command: >
-      sh -c "cd /app && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
-  # Next.js frontend (Task T-201)
+  # Dapr sidecar for Agent Service
+  daprd-agent:
+    image: daprio/daprd:latest
+    container_name: daprd_agent
+    command: [ "./daprd", "-app-id", "agent-service", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components" ]
+    volumes:
+      - ./dapr/components:/components
+    depends_on:
+      agent-service:
+        condition: service_started
+      dapr-placement:
+        condition: service_started
+    network_mode: service:agent-service # Dapr sidecar shares network with app
+    healthcheck:
+      test: [ "CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MCP Server (Starlette)
+  mcp-server:
+    build:
+      context: ./backend
+      dockerfile: mcp_server/Dockerfile
+    container_name: mcp_server
+    environment:
+      # Database (for shared config)
+      POSTGRES_USER: ${POSTGRES_USER:-evo_todo_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-evo_todo_password}
+      POSTGRES_DB: ${POSTGRES_DB:-evo_todo}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      # MCP
+      MCP_INTERNAL_SECRET: ${MCP_INTERNAL_SECRET:-mcp-internal-secret-change-in-production}
+      # Environment
+      ENVIRONMENT: development
+      DEBUG: "True"
+      # Dapr
+      DAPR_HTTP_PORT: 3500
+    ports:
+      - "8003:8000"
+    networks:
+      - evo-todo-network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/api/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Dapr sidecar for MCP Server
+  daprd-mcp:
+    image: daprio/daprd:latest
+    container_name: daprd_mcp
+    command: [ "./daprd", "-app-id", "mcp-server", "-app-port", "8000", "-placement-host", "dapr-placement:50000", "-components-path", "/components" ]
+    volumes:
+      - ./dapr/components:/components
+    depends_on:
+      mcp-server:
+        condition: service_started
+      dapr-placement:
+        condition: service_started
+    network_mode: service:mcp-server # Dapr sidecar shares network with app
+    healthcheck:
+      test: [ "CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: evo_todo_frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000
+      # For Dapr-enabled frontend, Dapr HTTP port is 3500 by default.
+      # Frontend will communicate via its Dapr sidecar to other services.
+      # If using an API Gateway, this would point to the API Gateway.
+      NEXT_PUBLIC_API_URL: http://localhost:8001 # Point to the todo-service exposed port
+      NEXT_PUBLIC_DAPR_HTTP_PORT: 3500 # Default Dapr HTTP port
     ports:
       - "3000:3000"
+      - "3001:3500" # Expose Dapr HTTP port for frontend for development/debugging
     depends_on:
-      - backend
+      - todo-service # Frontend depends on todo-service for initial interaction
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -70,8 +185,26 @@ services:
       - evo-todo-network
     command: npm run dev
 
-volumes:
-  postgres_data:
+  # Dapr sidecar for Frontend (optional, for direct Dapr invocation from frontend)
+  daprd-frontend:
+    image: daprio/daprd:latest
+    container_name: daprd_frontend
+    command: [ "./daprd", "-app-id", "frontend", "-app-port", "3000", "-placement-host", "dapr-placement:50000", "-components-path", "/components" ]
+    volumes:
+      - ./dapr/components:/components
+    depends_on:
+      frontend:
+        condition: service_started
+      dapr-placement:
+        condition: service_started
+    network_mode: service:frontend # Dapr sidecar shares network with app
+    healthcheck:
+      test: [ "CMD-SHELL", "curl http://localhost:3500/v1.0/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes: {}
 
 networks:
   evo-todo-network:

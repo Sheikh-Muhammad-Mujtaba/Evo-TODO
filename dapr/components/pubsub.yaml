@@ -1,0 +1,12 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+spec:
+  type: pubsub.in-memory
+  version: v1
+  metadata:
+    # In-memory pubsub for development
+    # For production, use Redis or other production-ready pub/sub
+    - name: consumerID
+      value: "{appID}"

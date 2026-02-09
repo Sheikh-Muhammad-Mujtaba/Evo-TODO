@@ -52,7 +52,7 @@ async def get_initialized_orchestrator_agent(mcp_http_server: MCPServerStreamabl
     return orchestrator_agent
 
 
-async def get_agent_response(orchestrator_agent: Agent, user_input: str, user_id: str, conversation_id: UUID) -> str:
+async def get_agent_response(orchestrator_agent: Agent, user_input: str, user_id: str, conversation_id: UUID, token: str) -> str:
     # Validate conversation_id is not None
     if conversation_id is None:
         raise ValueError("conversation_id is required and cannot be None")
@@ -89,11 +89,12 @@ async def get_agent_response(orchestrator_agent: Agent, user_input: str, user_id
                 model_settings=ModelSettings(temperature=0.2)
             )
 
+            # Pass token in context so MCP tools can access it
             result = await asyncio.wait_for(
                 Runner.run(
                     orchestrator_agent,
                     formatted_messages,
-                    context={"user_id": user_id},
+                    context={"user_id": user_id, "token": token},  # Pass token to tools via context
                     run_config=run_config,
                 ),
                 timeout=180.0  # 3 minute timeout for entire agent run

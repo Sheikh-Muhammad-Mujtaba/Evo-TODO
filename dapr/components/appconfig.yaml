@@ -1,0 +1,13 @@
+# Dapr Configuration for Kubernetes
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: appconfig
+  namespace: evo-todo
+spec:
+  tracing:
+    samplingRate: "1"
+    zipkin:
+      endpointAddress: "http://zipkin.evo-todo.svc.cluster.local:9411/api/v2/spans"
+  metric:
+    enabled: true

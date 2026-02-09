@@ -5,7 +5,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { apiGet, apiPost, apiPut, apiPatch, apiDelete } from "../api"
+import { apiGetTodo, apiPostTodo, apiPutTodo, apiPatchTodo, apiDeleteTodo } from "../api"
 
 export type TodoStatus = "pending" | "completed"
 // Note: Priority is not supported by backend in Phase II
@@ -207,7 +207,7 @@ export function useTodos(): UseTodosReturn {
       setIsLoading(true)
       setError(null)
 
-      const response = await apiGet<TodoListResponse>("/api/todos")
+      const response = await apiGetTodo<TodoListResponse>("/api/todos")
 
       if (response.ok && response.data?.todos) {
         // Transform backend todos to frontend format
@@ -256,7 +256,7 @@ export function useTodos(): UseTodosReturn {
     try {
       setError(null)
 
-      const response = await apiGet<TodoResponse>(`/api/todos/${id}`)
+      const response = await apiGetTodo<TodoResponse>(`/api/todos/${id}`)
 
       if (response.ok && response.data) {
         // Transform single todo response to frontend format
@@ -329,7 +329,7 @@ export function useTodos(): UseTodosReturn {
         description: data.description,
       }
 
-      const response = await apiPost<TodoResponse>("/api/todos", backendData)
+      const response = await apiPostTodo<TodoResponse>("/api/todos", backendData)
 
       if (response.ok && response.data) {
         // Transform and add new todo to state
@@ -400,7 +400,7 @@ export function useTodos(): UseTodosReturn {
         is_complete: data.status === "completed"
       }
 
-      const response = await apiPatch<TodoResponse>(`/api/todos/${id}`, backendData)
+      const response = await apiPatchTodo<TodoResponse>(`/api/todos/${id}`, backendData)
 
       if (response.ok && response.data) {
         // Transform and update todo in state
@@ -483,7 +483,7 @@ export function useTodos(): UseTodosReturn {
         throw new Error("At least one field (title or description) must be provided")
       }
 
-      const response = await apiPut<TodoResponse>(`/api/todos/${id}`, backendData)
+      const response = await apiPutTodo<TodoResponse>(`/api/todos/${id}`, backendData)
 
       if (response.ok && response.data) {
         // Transform and update todo in state
@@ -536,7 +536,7 @@ export function useTodos(): UseTodosReturn {
     try {
       setError(null)
 
-      const response = await apiDelete(`/api/todos/${id}`)
+      const response = await apiDeleteTodo(`/api/todos/${id}`)
 
       if (response.ok) {
         // Remove todo from state

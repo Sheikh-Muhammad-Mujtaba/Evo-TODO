@@ -107,7 +107,7 @@ export default function ChatPage() {
 
       if (!res.ok) throw new Error('Chat API error');
 
-      const { response, conversation_id } = await res.json();
+      const { response, conversation_id: _conversationId } = await res.json();
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
       // Update session conversationId if new
       if (conversation_id) {

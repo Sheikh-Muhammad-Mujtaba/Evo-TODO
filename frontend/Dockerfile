@@ -14,6 +14,8 @@ RUN if [ -f yarn.lock ]; then yarn --frozen-lockfile; else npm ci; fi
 COPY . .
 
 # Task T-205: Build Next.js app
+ARG NEXT_PUBLIC_AUTH_URL
+ENV NEXT_PUBLIC_AUTH_URL=$NEXT_PUBLIC_AUTH_URL
 RUN npm run build
 
 # Production stage

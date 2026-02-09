@@ -13,7 +13,7 @@ import { Pool } from "pg";
 // Debug logging for database initialization
 const databaseUrl = process.env.DATABASE_URL;
 const authSecret = process.env.BETTER_AUTH_SECRET;
-const baseUrl = process.env.NEXT_PUBLIC_AUTH_URL;
+const baseUrl = process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_AUTH_URL;
 
 console.log("[Better Auth] ==================== INITIALIZATION ====================");
 console.log("[Better Auth] Initializing auth instance...");

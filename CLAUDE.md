@@ -57,6 +57,11 @@ If ALL true: Suggest ADR, wait for consent.
 ## Default Policies
 - Clarify and plan first
 - Never hardcode secrets; use `.env`
+- **NEVER delete or modify `.env` files on my own. Always ask the user to handle such sensitive files manually.**
+- **Use skills properly and manage them smartly. Adhere to their specific instructions, and leverage them for efficient and accurate task completion.**
+- **Keep code clean and working. Prioritize refactoring over rewriting, ensure existing logic functions correctly after structural changes, and verify functionality.**
+- **Prioritize user intent over literal task execution when a conflict arises (e.g., if a task leads to destructive behavior not intended by the user).**
+- **Always confirm critical actions before execution, especially those that modify configuration or delete files.**
 - Smallest viable diff; no unrelated edits
 - Cite code with references (start:end:path)
 - Keep reasoning private
